@@ -1,7 +1,7 @@
 #!/bin/bash
 
 fps=24
-seconds=10
+seconds=1200
 fontsize=372
 fontcolor=#b50411
 
@@ -15,6 +15,7 @@ bgmusic=assets/backgroundmusic.mp3
 uplink=rtmp:127.0.0.1/show/live
 
 ffmpeg \
+    -re \
     -loop 1 \
     -i $background \
     -i $bgmusic \
@@ -41,6 +42,7 @@ ffmpeg \
     $uplink \
 && \
 ffmpeg \
+    -re \
     -loop 1 \
     -i $background \
     -c:v libx264 \
@@ -50,6 +52,7 @@ ffmpeg \
     -f flv $uplink \
 && \
 ffmpeg \
+    -re \
     -loop 1 \
     -i $remember \
     -c:v libx264 \
@@ -59,6 +62,7 @@ ffmpeg \
     -f flv $uplink \
 && \
 ffmpeg \
+    -re \
     -loop 1 \
     -i $thanks \
     -c:v libx264 \
@@ -68,6 +72,7 @@ ffmpeg \
     -f flv $uplink \
 && \
 ffmpeg \
+    -re \
     -loop 1 \
     -i $background \
     -c:v libx264 \
@@ -79,9 +84,19 @@ ffmpeg \
 ffmpeg \
     -re \
     -i $movie \
-    -c:v libx264 \
-    -c:a aac \
+    -c:v copy \
+    -c:a copy \
     -loop -1 \
     -ar 44100 \
     -strict -2 \
+    -f flv $uplink \
+    && \
+ffmpeg \
+    -re \
+    -loop 1 \
+    -i $remember \
+    -c:v libx264 \
+    -t 8 \
+    -pix_fmt yuv420p \
+    -vf scale=1920:1080 \
     -f flv $uplink;

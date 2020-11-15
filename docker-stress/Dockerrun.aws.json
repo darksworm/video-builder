@@ -1,0 +1,13 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+     "Name": "184038478048.dkr.ecr.eu-west-1.amazonaws.com/streamsniper",
+     "Update": "true"
+   },
+  "Ports": [
+    {
+      "ContainerPort": "80"
+    }
+  ],
+  "Logging": "/var/log"
+ }
