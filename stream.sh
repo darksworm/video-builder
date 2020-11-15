@@ -32,7 +32,7 @@ ffmpeg \
         :fontsize=$fontsize \
         :x=(w-text_w)/2 \
         :y=(h-text_h)/2 \
-        :text='%{eif\:(($seconds-t)/60)\:d}\:%{eif\:mod(($seconds-t),60)\:d}' \
+        :text='%{eif\:(($seconds-t)/60)\:d\:2}\:%{eif\:mod(($seconds-t),60)\:d\:2}' \
     " \
     -loop -1 \
     -ar 44100 \
