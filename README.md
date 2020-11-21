@@ -18,6 +18,8 @@ Streaming setup created for movie night. Includes a minutes, seconds countdown a
 3. enter `https://stream.emojigun.com/live.m3u8`
 4. press play
 
+[detailed instructions available here](https://imgur.com/a/jZoCTvb)
+
 ### Caveats
 1. specifically made for one movie (styling may not fit others)
 2. stream runs only on https, http should redirect
