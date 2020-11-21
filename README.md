@@ -1,4 +1,4 @@
-# NGINX HLS streamer
+# NGINX HLS VOD streamer
 
 Streaming setup created for movie night. Includes a minutes, seconds countdown and capable of displaying images before VOD starts. Streams over HTTPS.
 
