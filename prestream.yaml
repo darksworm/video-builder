@@ -1,0 +1,85 @@
+videos:
+  darkness_5_sec:
+    vars:
+      duration: 5
+    options:
+      - "-i $darkness_img"
+      - "-t $duration"
+      - blank_audio_options
+      - "-shortest"
+      - shared_options
+
+  countdown_initial:
+    vars:
+      audio_fade_dur: 25
+      audio_fade_start: 1170
+      duration: 1200
+    options:
+      - "-i $darkness_img"
+      - "-i $bgmusic"
+      - "-t $duration"
+      - "-af \"volume=0.07,afade=t=out:st=$audio_fade_start:d=$audio_fade_dur\""
+      - shared_options
+      - countdown
+      - "-strict 2"
+
+  reminder_video:
+    vars:
+      duration: 8
+      image: $assets/remember.png
+    options:
+      - "-i $image"
+      - blank_audio_options
+      - "-t $duration"
+      - shared_options
+
+  thanks_video:
+    vars:
+      duration: 8
+      image: $assets/thanks.png
+    options:
+      - "-i $image"
+      - blank_audio_options
+      - "-t $duration"
+      - shared_options
+
+output:
+  name: prestream
+  parts:
+    - darkness_5_sec
+    - countdown_initial
+    - darkness_5_sec
+    - reminder_video
+    - thanks_video
+
+preset_options:
+  shared_options: "\
+    -g $keyframe_framenr \
+    -keyint_min $keyframe_framenr \
+    -sc_threshold 0 \
+    -c:v h264 \
+    -c:a aac \
+    -ac 2 \
+    -ar $audio_rate \
+    -r $fps"
+
+  countdown: -vf "fps=$fps,drawtext=fontfile='$font_file':fontcolor=$font_color:fontsize=$font_size:x=(w-text_w)/2:y=(h-text_h)/2:text='%{eif\:(($duration-t)/60)\:d\:2}\:%{eif\:mod(($duration-t),60)\:d\:2}'"
+
+  blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
+
+global_options:
+  - "-y"
+  - "-loop 1"
+
+global_vars:
+  assets: /home/ilmars/dev/devops/nginx-streamer/assets
+  fps: 24
+  cd_dur: 1200
+  audio_fade_dur: 15
+  font_size: 372
+  font_color: "#b50411"
+  font_file: $assets/font.ttf
+  audio_rate: 44100
+  keyframe_framenr: 48
+  darkness_img: $assets/blackness.png
+  bgmusic: $assets/backgroundmusic.mp3
