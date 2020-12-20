@@ -15,7 +15,7 @@ Streaming setup created for movie night. Includes a minutes, seconds countdown a
 ### Viewing
 1. open VLC media player
 2. CTRL+N or Media -> Open network stream
-3. enter `https://stream.emojigun.com/live.m3u8`
+3. enter `https://unfixed.art/live`
 4. press play
 
 [detailed instructions available here](https://imgur.com/a/jZoCTvb)
@@ -23,7 +23,7 @@ Streaming setup created for movie night. Includes a minutes, seconds countdown a
 ### Caveats
 1. created specifically for one VOD (styling may not fit others)
 2. stream runs only on https, http will be redirected
-3. stream will only run on host `stream.emojigun.com`
+3. stream will only run on host `unfixed.art`
 
 ### <a name="vod_prep"></a>VOD preparation
 ```bash
