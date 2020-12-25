@@ -1,3 +1,5 @@
 *.pem
 export/*
 tmp/
+assets/trailers
+*.mp4
