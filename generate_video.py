@@ -102,6 +102,12 @@ def conf(filename=""):
             return yaml.load(file, Loader=yaml.FullLoader)
 conf.config = 0
 
+def confirm():
+    answer = ""
+    while answer not in ["y", "n"]:
+        answer = input("OK to continue [Y/N]? ").lower()
+    return answer == "y"
+
 # the magic starts here
 
 if len(sys.argv) < 2:
@@ -113,6 +119,13 @@ config_file = sys.argv[1]
 if not os.path.exists(config_file):
     print(f'Passed file "{config_file}" does not exist!')
     sys.exit(2)
+
+overwrite_all = "-y" in sys.argv
+
+if overwrite_all:
+    print("Going to overwrite all existing files.")
+    if not confirm():
+        sys.exit(3)
 
 conf.config = conf(config_file)
 
@@ -128,6 +141,7 @@ function concat_videos() {
   videos=("$@")
 
   lim=`expr ${#videos[@]} - 1`
+  fc=""
 
   for i in `seq 0 $lim`; do
       fc="$fc[$i:v][$i:a]"
@@ -148,6 +162,23 @@ function concat_videos() {
 }
 """
 
+bash_script_return_command = """\
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $output_file | cut -d. -f1\
+"""
+
+bash_confirm_video_overwrite = f"""\
+if [ -f "$output_file" ]; then
+    read -p "$output_file already exists, overwrite? (y|n) " -n 1 -r
+    >&2 echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]
+    then
+        {bash_script_return_command}
+        exit 1
+    fi
+fi
+"""
+
 for op in output_parts:
     if op not in videos:
         print(f'"{op}", defined in output parts not found in video section!')
@@ -165,13 +196,18 @@ for title, video_config in conf()['videos'].items():
     # any global vars with same name will be overwritten by video vars
     write_vars(video_script, video_config['vars'])
 
+    video_script.write(f'output_file={title}.mp4\n\n')
+
+    if not overwrite_all:
+        video_script.write(bash_confirm_video_overwrite)
+
     video_script.write('\nffmpeg \\\n')
     write_global_options(video_script)
     write_options(video_script, video_config['options'])
-    video_script.write(f'\t{title}.mp4 1>/dev/null\n\n')
+    video_script.write(f'\t$output_file 1>/dev/null\n\n')
 
     # output the resulting video lenght
-    video_script.write(f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {title}.mp4 | cut -d. -f1')
+    video_script.write(bash_script_return_command)
 
     video_script.close()
 
