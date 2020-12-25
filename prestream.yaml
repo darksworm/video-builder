@@ -3,31 +3,19 @@ videos:
     vars:
       duration: 5
     options:
+      - '-loop 1'
       - "-i $darkness_img"
       - "-t $duration"
       - blank_audio_options
       - "-shortest"
       - shared_options
 
-  countdown_initial:
-    vars:
-      audio_fade_dur: 25
-      audio_fade_start: 1170
-      duration: 1200
-    options:
-      - "-i $darkness_img"
-      - "-i $bgmusic"
-      - "-t $duration"
-      - "-af \"volume=0.07,afade=t=out:st=$audio_fade_start:d=$audio_fade_dur\""
-      - shared_options
-      - countdown
-      - "-strict 2"
-
   reminder_video:
     vars:
       duration: 8
       image: $assets/remember.png
     options:
+      - '-loop 1'
       - "-i $image"
       - blank_audio_options
       - "-t $duration"
@@ -38,22 +26,91 @@ videos:
       duration: 8
       image: $assets/thanks.png
     options:
+      - '-loop 1'
       - "-i $image"
       - blank_audio_options
       - "-t $duration"
       - shared_options
 
+  whiplash:
+    vars:
+      video: $assets/trailers/whiplash_2014.mp4
+    options:
+      - "-i $video"
+      - "-vf scale=1920x1080"
+      - shared_options
+      - "-ss 5"
+
+  grand_budapest:
+    vars:
+      video: $assets/trailers/the_grand_budapest_hotel_2014.mp4
+    options:
+      - "-i $video"
+      - "-vf scale=1920x1080"
+      - shared_options
+
+  nightcrawler:
+    vars:
+      video: $assets/trailers/nightcrawler_2014.mp4
+    options:
+      - "-i $video"
+      - "-vf scale=1920x1080"
+      - shared_options
+      - "-ss 6"
+
+  midsommar:
+    vars:
+      video: $assets/trailers/midsommar_2014.mp4
+    options:
+      - "-i $video"
+      - "-vf scale=1920x1080"
+      - shared_options
+
+  countdown_second:
+    vars:
+      duration: 30
+      countdown_start: 30
+    options:
+      - blank_audio_options
+      - '-loop 1'
+      - "-i $darkness_img"
+      - "-t $duration"
+      - shared_options
+      - countdown
+      - "-strict 2"
+
+  countdown_first:
+    vars:
+      countdown_start: 1200
+      duration: "$(expr 1200 - $midsommar_length - $nightcrawler_length - $grand_budapest_length - $whiplash_length - $countdown_second_length)"
+      audio_fade_start: "$(expr $duration - 30)"
+      audio_fade_dur: 25
+    options:
+      - '-loop 1'
+      - "-i $darkness_img"
+      - "-i $bgmusic"
+      - "-t $duration"
+      - "-af \"volume=0.07,afade=t=out:st=$audio_fade_start:d=$audio_fade_dur\""
+      - shared_options
+      - countdown
+      - "-strict 2"
+
 output:
   name: prestream
   parts:
     - darkness_5_sec
-    - countdown_initial
+    - countdown_first
+    - grand_budapest
+    - whiplash
+    - nightcrawler
+    - midsommar
+    - countdown_second
     - darkness_5_sec
     - reminder_video
     - thanks_video
 
 preset_options:
-  shared_options: "\
+  shared_options: |-
     -g $keyframe_framenr \
     -keyint_min $keyframe_framenr \
     -sc_threshold 0 \
@@ -61,15 +118,19 @@ preset_options:
     -c:a aac \
     -ac 2 \
     -ar $audio_rate \
-    -r $fps"
+    -r $fps
 
-  countdown: -vf "fps=$fps,drawtext=fontfile='$font_file':fontcolor=$font_color:fontsize=$font_size:x=(w-text_w)/2:y=(h-text_h)/2:text='%{eif\:(($duration-t)/60)\:d\:2}\:%{eif\:mod(($duration-t),60)\:d\:2}'"
+  countdown: |-
+    -vf "fps=$fps,drawtext=fontfile='$font_file'\
+         :fontcolor=$font_color:fontsize=$font_size\
+         :x=(w-text_w)/2:y=(h-text_h)/2\
+         :text='%{eif\:(($countdown_start-t)/60)\:d\:2}\:%{eif\:mod(($countdown_start-t),60)\:d\:2}'"
 
   blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
 
 global_options:
+  - "-threads 8"
   - "-y"
-  - "-loop 1"
 
 global_vars:
   assets: /home/ilmars/dev/devops/nginx-streamer/assets

@@ -59,7 +59,7 @@ import os
 # creates a bash script with name {name}.bash
 def start_script(name):
     f = open(f'export/{name}.bash', 'w')
-    f.write('#!/bin/bash\nset -e\n\n')
+    f.write('#!/bin/bash\nset -e -u\n\n')
     return f
 
 # writes varibales from {var_dict} to {file_to}
@@ -84,10 +84,10 @@ def write_options(file_to, opt_list):
             presets = conf()['preset_options']
 
             if option in presets.keys():
-                file_to.write(presets[option])
-                file_to.write(f' \\\n')
+                formatted = '\t'.join(presets[option].splitlines(True))
+                file_to.write(f'\t{formatted}\\\n')
             else:
-                file_to.write(f'{option} \\\n')
+                file_to.write(f'\t{option} \\\n')
 
 def write_global_options(file_to):
     write_options(file_to, conf()['global_options'])
@@ -156,11 +156,14 @@ for title, video_config in conf()['videos'].items():
     video_script.write('\nffmpeg \\\n')
     write_global_options(video_script)
     write_options(video_script, video_config['options'])
-    video_script.write(f'{title}.mp4\n')
+    video_script.write(f'\t{title}.mp4 1>/dev/null\n\n')
+
+    # output the resulting video lenght
+    video_script.write(f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {title}.mp4 | cut -d. -f1')
 
     video_script.close()
 
-    scripts_to_execute.append(f'{title}.bash')
+    scripts_to_execute.append(f'export {title}_length=$(bash {title}.bash)')
 
 with start_script(main_script_name) as main_script:
     write_globals(main_script)
@@ -174,7 +177,7 @@ with start_script(main_script_name) as main_script:
     parts = [name + '.mp4' for name in conf()['output']['parts']]
 
     # run all the video generation scripts
-    main_script.write(' && \\\n'.join(['bash ' + s for s in scripts_to_execute]))
+    main_script.write(' && \\\n'.join([s for s in scripts_to_execute]))
 
     # and then concat the videos
     main_script.write(' && \\\n')
