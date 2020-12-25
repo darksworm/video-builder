@@ -37,7 +37,7 @@ videos:
       video: $assets/trailers/whiplash_2014.mp4
     options:
       - "-i $video"
-      - "-vf scale=1920x1080"
+      - rescale1080p
       - shared_options
       - "-ss 5"
 
@@ -46,7 +46,7 @@ videos:
       video: $assets/trailers/the_grand_budapest_hotel_2014.mp4
     options:
       - "-i $video"
-      - "-vf scale=1920x1080"
+      - rescale1080p
       - shared_options
 
   nightcrawler:
@@ -54,7 +54,7 @@ videos:
       video: $assets/trailers/nightcrawler_2014.mp4
     options:
       - "-i $video"
-      - "-vf scale=1920x1080"
+      - rescale1080p
       - shared_options
       - "-ss 6"
 
@@ -63,7 +63,7 @@ videos:
       video: $assets/trailers/midsommar_2014.mp4
     options:
       - "-i $video"
-      - "-vf scale=1920x1080"
+      - rescale1080p
       - shared_options
 
   countdown_second:
@@ -95,25 +95,33 @@ videos:
       - countdown
       - "-strict 2"
 
-output:
-  name: prestream
-  parts:
-    - darkness_5_sec
-    - countdown_first
-    - grand_budapest
-    - whiplash
-    - nightcrawler
-    - midsommar
-    - countdown_second
-    - darkness_5_sec
-    - reminder_video
-    - thanks_video
+  # movie:
+  #   vars:
+  #     movie_file: $assets/birdman.mkv
+  #   options:
+  #     - "-i $movie_file"
+  #     - shared_options
+  #     - -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
+
+  prestream:
+    options:
+      - "-g $keyframe_framenr"
+      - "-keyint_min $keyframe_framenr"
+      - "-sc_threshold 0"
+    combine:
+      - darkness_5_sec
+      - countdown_first
+      - grand_budapest
+      - whiplash
+      - nightcrawler
+      - midsommar
+      - countdown_second
+      - darkness_5_sec
+      - reminder_video
+      - thanks_video
 
 preset_options:
   shared_options: |-
-    -g $keyframe_framenr \
-    -keyint_min $keyframe_framenr \
-    -sc_threshold 0 \
     -c:v h264 \
     -c:a aac \
     -ac 2 \
@@ -128,6 +136,10 @@ preset_options:
 
   blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
 
+  rescale1080p: -vf "scale=1920:1080,setsar=1:1"
+
+  padto1080p: -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
+
 global_options:
   - "-threads 8"
   - "-y"
@@ -138,7 +150,7 @@ global_vars:
   cd_dur: 1200
   audio_fade_dur: 15
   font_size: 372
-  font_color: "#b50411"
+  font_color: "#ffffff"
   font_file: $assets/font.ttf
   audio_rate: 44100
   keyframe_framenr: 48

@@ -1,5 +1,5 @@
 # Multipart video ffmpeg script generation script.
-# Uses `prestream.yaml` to generate multi-section videos.
+# Uses yaml file (from first arg) to generate multi-section videos.
 #
 # Example config - generates video with name "prestream.mp4" which consists of
 # two parts - "darkness_5_sec" and "countdown_initial"
@@ -27,11 +27,10 @@
 #        - countdown
 #        - "-strict 2"
 #
-#  output:
-#    name: prestream
-#    parts:
-#      - darkness_5_sec
-#      - countdown_initial
+#    prestream:
+#      combine:
+#        - darkness_5_sec
+#        - countdown_initial
 #
 #  preset_options:
 #    shared_options: "\
@@ -52,6 +51,11 @@
 #    fps: 24
 #    keyframe_framenr: 48
 #    darkness_img: $assets/blackness.png
+#
+#
+# Example usage - generate video from config "prestream.yaml" and overwrite
+# already existing files
+# python generate_video.py prestream.yaml -y
 
 import yaml
 import os
@@ -59,7 +63,7 @@ import sys
 
 # creates a bash script with name {name}.bash
 def start_script(name):
-    f = open(f'export/{name}.bash', 'w')
+    f = open(f'export/{name}', 'w')
     f.write('#!/bin/bash\nset -e -u\n\n')
     return f
 
@@ -130,13 +134,12 @@ if overwrite_all:
 conf.config = conf(config_file)
 
 scripts_to_execute = []
-main_script_name = 'generate_prestream'
+main_script_name = 'generate_video.bash'
 videos = conf()['videos'].keys()
-output_parts = conf()['output']['parts']
 
 # this bash function generates and runs the ffmpeg command to combine all of
 # the videos passed in as the second parameter to filename in the first
-bash_concat_function = """\
+bash_concat_function_1 = """\
 function concat_videos() {
   videos=("$@")
 
@@ -149,16 +152,14 @@ function concat_videos() {
 
   # put all the videos together
   ffmpeg \\
-      -y \\
-      ${videos[@]/#/-i } \\
-      -filter_complex "${fc}concat=n=${#videos[@]}:v=1:a=1[a][v]" \\
-      -map "[v]" \\
-      -map "[a]"  \\
-      -bsf:a aac_adtstoasc \\
-      -b:a 256k \\
-""" + conf()['preset_options']['shared_options'] + " \\" \
+    -y \\
+    ${videos[@]/#/-i } \\
+    -filter_complex "${fc}concat=n=${#videos[@]}:v=1:a=1[a][v]" \\
+    -map "[v]" \\
+    -map "[a]" \\
 """
-      $output_file
+bash_concat_function_2 = """\
+    $output_file
 }
 """
 
@@ -179,59 +180,52 @@ if [ -f "$output_file" ]; then
 fi
 """
 
-for op in output_parts:
-    if op not in videos:
-        print(f'"{op}", defined in output parts not found in video section!')
-        exit(1)
-
 for title, video_config in conf()['videos'].items():
-    # don't generate videos which won't be used in the output
-    if title not in output_parts:
-        print(f'video {title} not found in output parts, skipping it.\n')
-        continue
-
-    video_script = start_script(title)
+    script_name = f'export_{title}.bash'
+    video_script = start_script(script_name)
     write_globals(video_script)
 
-    # any global vars with same name will be overwritten by video vars
-    write_vars(video_script, video_config['vars'])
+    if 'vars' in video_config.keys():
+        # any global vars with same name will be overwritten by video vars
+        write_vars(video_script, video_config['vars'])
 
     video_script.write(f'output_file={title}.mp4\n\n')
 
     if not overwrite_all:
         video_script.write(bash_confirm_video_overwrite)
 
-    video_script.write('\nffmpeg \\\n')
-    write_global_options(video_script)
-    write_options(video_script, video_config['options'])
-    video_script.write(f'\t$output_file 1>/dev/null\n\n')
+    if 'combine' in video_config.keys():
+        video_script.write("\n" + bash_concat_function_1)
+        write_options(video_script, video_config['options'])
+        video_script.write(bash_concat_function_2 + "\n")
+
+        parts = [name + '.mp4' for name in video_config['combine']]
+        parts = ' '.join([p for p in parts])
+        video_script.write('concat_videos ' + parts  + '\n')
+
+        video_script.write('\n')
+    else:
+        video_script.write('\nffmpeg \\\n')
+        write_global_options(video_script)
+        write_options(video_script, video_config['options'])
+        video_script.write(f'\t$output_file 1>/dev/null\n\n')
 
     # output the resulting video lenght
     video_script.write(bash_script_return_command)
 
     video_script.close()
 
-    scripts_to_execute.append(f'export {title}_length=$(bash {title}.bash)')
+    scripts_to_execute.append(f'export {title}_length=$(bash {script_name})')
 
 with start_script(main_script_name) as main_script:
     write_globals(main_script)
 
-    output_fn = conf()['output']['name'] + '.mp4';
-    main_script.write('output_file=' + output_fn + '\n')
-
-    main_script.write("\n" + bash_concat_function + "\n")
-
-    # set up list of videos that need to be concatenated
-    parts = [name + '.mp4' for name in conf()['output']['parts']]
+    main_script.write("\n")
 
     # run all the video generation scripts
     main_script.write(' && \\\n'.join([s for s in scripts_to_execute]))
 
-    # and then concat the videos
-    main_script.write(' && \\\n')
-    main_script.write('concat_videos ' + ' '.join([p for p in parts]) + '\n')
-
 # run the generated script
 os.chdir('export')
 os.system('chmod +x *.bash')
-os.system(f'bash {main_script_name}.bash')
+os.system(f'bash {main_script_name}')
