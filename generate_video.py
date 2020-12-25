@@ -55,6 +55,7 @@
 
 import yaml
 import os
+import sys
 
 # creates a bash script with name {name}.bash
 def start_script(name):
@@ -93,16 +94,27 @@ def write_global_options(file_to):
     write_options(file_to, conf()['global_options'])
 
 # gets config from prestream.yaml or cache
-def conf():
+def conf(filename=""):
     if conf.config:
         return conf.config
     else:
-        with open('prestream.yaml', 'r') as file:
-            conf.config = yaml.load(file, Loader=yaml.FullLoader)
-        return conf()
+        with open(filename, 'r') as file:
+            return yaml.load(file, Loader=yaml.FullLoader)
 conf.config = 0
 
 # the magic starts here
+
+if len(sys.argv) < 2:
+    print('Please pass the config yaml as the first parameter!')
+    sys.exit(1)
+
+config_file = sys.argv[1]
+
+if not os.path.exists(config_file):
+    print(f'Passed file "{config_file}" does not exist!')
+    sys.exit(2)
+
+conf.config = conf(config_file)
 
 scripts_to_execute = []
 main_script_name = 'generate_prestream'
