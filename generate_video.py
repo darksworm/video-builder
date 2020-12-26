@@ -72,21 +72,17 @@ def write_vars(file_to, var_dict):
     for var, val in var_dict.items():
         file_to.write(f'{var}={val}\n')
 
-# alias for writing global variables
-def write_globals(file_to):
-    write_vars(file_to, conf()['global_vars'])
+# write global and opt_list ffpmeg options/flags
+def write_options(file_to, opt_list, config):
+    if opt_list != config['global_options']:
+        write_options(file_to, config['global_options'], config)
 
-# writes all ffpmeg options/params from {opt_list} to {file_to}
-# if an opt is a string, it will be interpreted as a preset option.
-# if an opt is a dict, it will be interpreted as a custom option and the dicts
-# first value will be written instead.
-def write_options(file_to, opt_list):
     for option in opt_list:
         if type(option) is dict:
             option = option[list(option.keys())[0]]
             write_options(file_to, option)
         else:
-            presets = conf()['preset_options']
+            presets = config['preset_options']
 
             if option in presets.keys():
                 formatted = '\t'.join(presets[option].splitlines(True))
@@ -94,17 +90,9 @@ def write_options(file_to, opt_list):
             else:
                 file_to.write(f'\t{option} \\\n')
 
-def write_global_options(file_to):
-    write_options(file_to, conf()['global_options'])
-
-# gets config from prestream.yaml or cache
-def conf(filename=""):
-    if conf.config:
-        return conf.config
-    else:
-        with open(filename, 'r') as file:
-            return yaml.load(file, Loader=yaml.FullLoader)
-conf.config = 0
+def load_yaml_config(filename=""):
+    with open(filename, 'r') as file:
+        return yaml.load(file, Loader=yaml.FullLoader)
 
 def confirm():
     answer = ""
@@ -131,30 +119,28 @@ if overwrite_all:
     if not confirm():
         sys.exit(3)
 
-conf.config = conf(config_file)
+config = load_yaml_config(config_file)
 
 scripts_to_execute = []
 main_script_name = 'generate_video.bash'
-videos = conf()['videos'].keys()
+videos = config['videos'].keys()
 
-# this bash function generates and runs the ffmpeg command to combine all of
-# the videos passed in as the second parameter to filename in the first
 bash_concat_function_1 = """\
+# combine all files from arguments with ffmpeg using filter_complex and map
 function concat_videos() {
   videos=("$@")
 
   lim=`expr ${#videos[@]} - 1`
-  fc=""
+  filter_compex=""
 
   for i in `seq 0 $lim`; do
-      fc="$fc[$i:v][$i:a]"
+      filter_complex="$filter_complex[$i:v][$i:a]"
   done
 
-  # put all the videos together
   ffmpeg \\
     -y \\
     ${videos[@]/#/-i } \\
-    -filter_complex "${fc}concat=n=${#videos[@]}:v=1:a=1[a][v]" \\
+    -filter_complex "${filter_complex}concat=n=${#videos[@]}:v=1:a=1[a][v]" \\
     -map "[v]" \\
     -map "[a]" \\
 """
@@ -164,10 +150,13 @@ bash_concat_function_2 = """\
 """
 
 bash_script_return_command = """\
+# output generated videos duration in seconds
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $output_file | cut -d. -f1\
 """
 
 bash_skip_regenerate_existing_video = f"""\
+# if the md5 stored in the video file matches this scripts md5, there is no
+# need to regenerate the video as it is up to date.
 if [ -f "$output_file" ] && [ "$script_md5" = "$video_md5" ]; then
     >&2 echo "$output_file already up to date, skipping it!"
     {bash_script_return_command}
@@ -177,15 +166,18 @@ fi
 """
 
 bash_concat_video_md5 = """\
+# for concatenated videos, generate the script hash from the combination of all
+# consumed video scripts
 for video in "${videos[@]}"
 do
-    fn=$(dirname $script_path)/export_$(echo $video | cut -d"." -f1 | xargs).bash
-    script_md5=${script_md5}$(md5sum $fn | cut -d" " -f1)
+    dir=$(dirname $script_path)
+    name=export_$(echo $video | cut -d"." -f1 | xargs).bash
+    script_md5=${script_md5}$(md5sum $dir/$name | cut -d" " -f1)
 done
 script_md5=$(echo $script_md5 | md5sum | cut -d" " -f1)
 """
 
-for title, video_config in conf()['videos'].items():
+for title, video_config in config['videos'].items():
     script_name = f'export_{title}.bash'
     video_script = start_script(script_name)
 
@@ -194,19 +186,17 @@ for title, video_config in conf()['videos'].items():
     video_script.write('script_md5=$(md5sum $script_path | cut -d" " -f1)\n')
     video_script.write('video_md5=$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)\n')
 
-    write_globals(video_script)
+    write_vars(video_script, config['global_vars'])
 
     if 'vars' in video_config.keys():
         # any global vars with same name will be overwritten by video vars
         write_vars(video_script, video_config['vars'])
-        video_script.write('\n')
-    else:
-        video_script.write('\n')
+
+    video_script.write('\n')
 
     if 'combine' in video_config.keys():
         video_script.write(bash_concat_function_1)
-        write_global_options(video_script)
-        write_options(video_script, video_config['options'])
+        write_options(video_script, video_config['options'], config)
         video_script.write(bash_concat_function_2 + "\n")
 
         parts = [name + '.mp4' for name in video_config['combine']]
@@ -226,8 +216,7 @@ for title, video_config in conf()['videos'].items():
             video_script.write(bash_skip_regenerate_existing_video)
 
         video_script.write('\nffmpeg \\\n')
-        write_global_options(video_script)
-        write_options(video_script, video_config['options'])
+        write_options(video_script, video_config['options'], config)
         video_script.write(f'\t$output_file 1>/dev/null\n\n')
 
     # save generation script md5 in generated videos "artist" metadata field
@@ -242,7 +231,7 @@ for title, video_config in conf()['videos'].items():
     scripts_to_execute.append(f'export {title}_length=$(bash {script_name})')
 
 with start_script(main_script_name) as main_script:
-    write_globals(main_script)
+    write_vars(main_script, config['global_vars'])
 
     main_script.write("\n")
     # run all the video generation scripts
