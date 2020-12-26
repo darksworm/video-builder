@@ -115,6 +115,7 @@ videos:
       - whiplash
       - nightcrawler
       - midsommar
+      - darkness_5_sec
       - countdown_second
       - darkness_5_sec
       - reminder_video
@@ -141,8 +142,10 @@ preset_options:
   padto1080p: -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
 
 global_options:
-  - "-threads 8"
   - "-y"
+  - "-v warning"
+  - "-hide_banner"
+  - "-stats"
 
 global_vars:
   assets: /home/ilmars/dev/devops/nginx-streamer/assets

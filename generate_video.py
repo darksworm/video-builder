@@ -167,50 +167,74 @@ bash_script_return_command = """\
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $output_file | cut -d. -f1\
 """
 
-bash_confirm_video_overwrite = f"""\
-if [ -f "$output_file" ]; then
-    read -p "$output_file already exists, overwrite? (y|n) " -n 1 -r
-    >&2 echo
-
-    if [[ ! $REPLY =~ ^[Yy]$ ]]
-    then
-        {bash_script_return_command}
-        exit 1
-    fi
+bash_skip_regenerate_existing_video = f"""\
+if [ -f "$output_file" ] && [ "$script_md5" = "$video_md5" ]; then
+    >&2 echo "$output_file already up to date, skipping it!"
+    {bash_script_return_command}
+    exit 1
 fi
+>&2 echo "Generating $output_file..."
+"""
+
+bash_concat_video_md5 = """\
+for video in "${videos[@]}"
+do
+    fn=$(dirname $script_path)/export_$(echo $video | cut -d"." -f1 | xargs).bash
+    script_md5=${script_md5}$(md5sum $fn | cut -d" " -f1)
+done
+script_md5=$(echo $script_md5 | md5sum | cut -d" " -f1)
 """
 
 for title, video_config in conf()['videos'].items():
     script_name = f'export_{title}.bash'
     video_script = start_script(script_name)
+
+    video_script.write(f'output_file={title}.mp4\n\n')
+    video_script.write('script_path=$(readlink --canonicalize-existing "$0")\n')
+    video_script.write('script_md5=$(md5sum $script_path | cut -d" " -f1)\n')
+    video_script.write('video_md5=$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)\n')
+
     write_globals(video_script)
 
     if 'vars' in video_config.keys():
         # any global vars with same name will be overwritten by video vars
         write_vars(video_script, video_config['vars'])
-
-    video_script.write(f'output_file={title}.mp4\n\n')
-
-    if not overwrite_all:
-        video_script.write(bash_confirm_video_overwrite)
+        video_script.write('\n')
+    else:
+        video_script.write('\n')
 
     if 'combine' in video_config.keys():
-        video_script.write("\n" + bash_concat_function_1)
+        video_script.write(bash_concat_function_1)
+        write_global_options(video_script)
         write_options(video_script, video_config['options'])
         video_script.write(bash_concat_function_2 + "\n")
 
         parts = [name + '.mp4' for name in video_config['combine']]
         parts = ' '.join([p for p in parts])
-        video_script.write('concat_videos ' + parts  + '\n')
+
+        video_script.write('videos=( ' + parts + ' )\n\n')
+        video_script.write(bash_concat_video_md5 + "\n")
+
+        if not overwrite_all:
+            video_script.write(bash_skip_regenerate_existing_video)
+
+        video_script.write('\nconcat_videos ${videos[@]}\n')
 
         video_script.write('\n')
     else:
+        if not overwrite_all:
+            video_script.write(bash_skip_regenerate_existing_video)
+
         video_script.write('\nffmpeg \\\n')
         write_global_options(video_script)
         write_options(video_script, video_config['options'])
         video_script.write(f'\t$output_file 1>/dev/null\n\n')
 
-    # output the resulting video lenght
+    # save generation script md5 in generated videos "artist" metadata field
+    video_script.write(f'exiftool $output_file -artist="$script_md5" 1>/dev/null\n')
+    # remove the backup file created by exiftool
+    video_script.write('rm ${output_file}_original\n\n')
+    # output the resulting video length
     video_script.write(bash_script_return_command)
 
     video_script.close()
@@ -221,7 +245,6 @@ with start_script(main_script_name) as main_script:
     write_globals(main_script)
 
     main_script.write("\n")
-
     # run all the video generation scripts
     main_script.write(' && \\\n'.join([s for s in scripts_to_execute]))
 
