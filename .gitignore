@@ -3,3 +3,4 @@ export/*
 tmp/
 assets/trailers
 *.mp4
+__pycache__

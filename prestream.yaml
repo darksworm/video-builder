@@ -1,6 +1,45 @@
+shared_options:
+  - "-y"
+  - "-v warning"
+  - "-hide_banner"
+  - "-stats"
+
+shared_variables:
+  assets: /home/ilmars/dev/devops/nginx-streamer/assets
+  fps: 24
+  cd_dur: 1200
+  audio_fade_dur: 15
+  font_size: 372
+  font_color: "#ffffff"
+  font_file: $assets/font.ttf
+  audio_rate: 44100
+  keyframe_framenr: 48
+  darkness_img: $assets/blackness.png
+  bgmusic: $assets/backgroundmusic.mp3
+
+option_templates:
+  shared_options: |-
+    -c:v h264
+    -c:a aac
+    -ac 2
+    -ar $audio_rate
+    -r $fps
+
+  countdown: |-
+    -vf "fps=$fps,drawtext=fontfile='$font_file'
+         :fontcolor=$font_color:fontsize=$font_size
+         :x=(w-text_w)/2:y=(h-text_h)/2
+         :text='%{eif\:(($countdown_start-t)/60)\:d\:2}\:%{eif\:mod(($countdown_start-t),60)\:d\:2}'"
+
+  blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
+
+  rescale1080p: -vf "scale=1920:1080,setsar=1:1"
+
+  padto1080p: -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
+
 videos:
   darkness_5_sec:
-    vars:
+    variables:
       duration: 5
     options:
       - '-loop 1'
@@ -11,7 +50,7 @@ videos:
       - shared_options
 
   reminder_video:
-    vars:
+    variables:
       duration: 8
       image: $assets/remember.png
     options:
@@ -22,7 +61,7 @@ videos:
       - shared_options
 
   thanks_video:
-    vars:
+    variables:
       duration: 8
       image: $assets/thanks.png
     options:
@@ -33,41 +72,45 @@ videos:
       - shared_options
 
   whiplash:
-    vars:
+    variables:
       video: $assets/trailers/whiplash_2014.mp4
     options:
       - "-i $video"
       - rescale1080p
       - shared_options
       - "-ss 5"
+      - "-t 15"
 
   grand_budapest:
-    vars:
+    variables:
       video: $assets/trailers/the_grand_budapest_hotel_2014.mp4
     options:
       - "-i $video"
       - rescale1080p
       - shared_options
+      - "-t 15"
 
   nightcrawler:
-    vars:
+    variables:
       video: $assets/trailers/nightcrawler_2014.mp4
     options:
       - "-i $video"
       - rescale1080p
       - shared_options
       - "-ss 6"
+      - "-t 15"
 
   midsommar:
-    vars:
+    variables:
       video: $assets/trailers/midsommar_2014.mp4
     options:
       - "-i $video"
       - rescale1080p
       - shared_options
+      - "-t 15"
 
   countdown_second:
-    vars:
+    variables:
       duration: 30
       countdown_start: 30
     options:
@@ -80,9 +123,9 @@ videos:
       - "-strict 2"
 
   countdown_first:
-    vars:
-      countdown_start: 1200
-      duration: "$(expr 1200 - $midsommar_length - $nightcrawler_length - $grand_budapest_length - $whiplash_length - $countdown_second_length)"
+    variables:
+      countdown_start: 30
+      duration: 31 #"$(expr $countdown_start - $midsommar_length - $nightcrawler_length - $grand_budapest_length - $whiplash_length - $countdown_second_length)"
       audio_fade_start: "$(expr $duration - 30)"
       audio_fade_dur: 25
     options:
@@ -96,7 +139,7 @@ videos:
       - "-strict 2"
 
   # movie:
-  #   vars:
+  #   variables:
   #     movie_file: $assets/birdman.mkv
   #   options:
   #     - "-i $movie_file"
@@ -120,42 +163,3 @@ videos:
       - darkness_5_sec
       - reminder_video
       - thanks_video
-
-preset_options:
-  shared_options: |-
-    -c:v h264 \
-    -c:a aac \
-    -ac 2 \
-    -ar $audio_rate \
-    -r $fps
-
-  countdown: |-
-    -vf "fps=$fps,drawtext=fontfile='$font_file'\
-         :fontcolor=$font_color:fontsize=$font_size\
-         :x=(w-text_w)/2:y=(h-text_h)/2\
-         :text='%{eif\:(($countdown_start-t)/60)\:d\:2}\:%{eif\:mod(($countdown_start-t),60)\:d\:2}'"
-
-  blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
-
-  rescale1080p: -vf "scale=1920:1080,setsar=1:1"
-
-  padto1080p: -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
-
-global_options:
-  - "-y"
-  - "-v warning"
-  - "-hide_banner"
-  - "-stats"
-
-global_vars:
-  assets: /home/ilmars/dev/devops/nginx-streamer/assets
-  fps: 24
-  cd_dur: 1200
-  audio_fade_dur: 15
-  font_size: 372
-  font_color: "#ffffff"
-  font_file: $assets/font.ttf
-  audio_rate: 44100
-  keyframe_framenr: 48
-  darkness_img: $assets/blackness.png
-  bgmusic: $assets/backgroundmusic.mp3
