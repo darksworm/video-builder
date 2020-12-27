@@ -21,11 +21,11 @@ def run_main_script(config):
     os.system('bash generate.bash')
 
 def validate_arguments(arguments):
-    if len(sys.argv) < 3:
+    if len(arguments) < 3:
         print('Please pass the config yaml and export path.')
         sys.exit(1)
 
-    if not os.path.exists(sys.argv[1]):
+    if not os.path.exists(arguments[1]):
         print('Passed yaml file does not exist!')
         sys.exit(2)
 
