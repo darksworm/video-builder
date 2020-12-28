@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from io import StringIO
 from typing import Dict
 
 import psutil
@@ -8,6 +9,7 @@ import psutil
 from config import VideoConfig, VideoVariableListProvider, StaticVariableListProvider, Config, VideoConfigBuilder, \
     build_video_configs
 from generate_video import validate_arguments, load_yaml_config_from_file
+from script_writing import BashScript, BashCodeBuilder, StaticBashCodeBuilder, write_main_script
 
 
 class TestValidateArguments(unittest.TestCase):
@@ -407,6 +409,170 @@ class TestBuildVideoConfigs(unittest.TestCase):
         config_titles = [config.get_title() for config in configs]
 
         self.assertEqual(expected_titles, config_titles)
+
+
+class TestBashScript(unittest.TestCase):
+    def setUp(self) -> None:
+        self.line1 = "#!/bin/bash"
+        self.line2 = "set -e -u"
+
+        writers = [
+            StaticBashCodeBuilder(self.line1),
+            StaticBashCodeBuilder(self.line2),
+        ]
+
+        self.mock_file = StringIO()
+        self.script = BashScript(self.mock_file, writers)
+        self.script.write()
+
+    def tearDown(self) -> None:
+        self.script.close_file()
+
+    def test_file_written_to(self):
+        self.mock_file.seek(0)
+        content = self.mock_file.read()
+        self.assertNotEqual('', content)
+
+    def test_file_lines_match_writer_contents(self):
+        self.mock_file.seek(0)
+        script_content = self.mock_file.read()
+        expected_content = f'{self.line1}{self.line2}'
+        self.assertEqual(expected_content.replace('\n', ''), script_content.replace('\n', ''))
+
+    def test_script_executes_with_0_exit_code(self):
+        self.mock_file.seek(0)
+        script_content = self.mock_file.read()
+        exit_code = os.system(script_content)
+        self.assertEqual(0, exit_code)
+
+
+class TestBashCodeWriter(unittest.TestCase):
+    def test_bash_code_writer_throws_on_write(self):
+        writer = BashCodeBuilder()
+        with self.assertRaises(NotImplementedError):
+            writer.build()
+
+
+class TestWriteMainScript(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = {
+            'shared_variables': {
+                'var1': 'val1',
+                'var2': 'val2',
+                'var3': 'val3',
+            },
+            'shared_options': [
+                '-yes',
+                '-something'
+            ],
+            'videos': {
+                'video1': {
+                    'options': [
+                        '-no',
+                        'something'
+                    ],
+                    'variables': {
+                        'testing': 30,
+                        'something': 'yes'
+                    }
+                },
+                'video2': {
+                    'options': [
+                        '-maybe'
+                    ],
+                    'variables': {
+                        'length': 60,
+                        'something': 'yes'
+                    }
+                }
+            },
+            'option_templates': {
+                'something': "-yes -no -maybe"
+            }
+        }
+        self.config = Config(self.raw_config, 'export')
+        self.videos = build_video_configs(self.config, StaticVariableListProvider({}))
+        self.script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+
+        self.video_script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.video_script_file.write('#!/bin/bash')
+        self.video_script_file.close()
+
+    def tearDown(self) -> None:
+        for file in [self.script_file, self.video_script_file]:
+            file.close()
+            os.unlink(file.name)
+
+    def test_file_closed_after_writing(self):
+        write_main_script(self.script_file, self.videos, self.config.get_variables())
+        self.assertTrue(self.script_file.closed)
+
+    def write_and_get_contents(self):
+        write_main_script(self.script_file, self.videos, self.config.get_variables())
+        with open(self.script_file.name, 'r') as file:
+            return file.read()
+
+    def test_code_written_to_file(self):
+        contents = self.write_and_get_contents()
+        self.assertGreater(contents, "")
+
+    def test_video_scripts_present_in_written_code(self):
+        contents = self.write_and_get_contents()
+        video_scripts = [video.get_script_name() for video in self.videos]
+        for video_script in video_scripts:
+            self.assertIn(video_script, contents)
+
+    def test_variables_present_in_written_code(self):
+        contents = self.write_and_get_contents()
+        for name, value in self.config.get_variables().items():
+            self.assertIn(name, contents)
+            self.assertIn(value, contents)
+
+    def test_written_code_executes_successfully(self):
+        contents = self.write_and_get_contents()
+
+        # replace script calls with the temp file
+        video_scripts = [video.get_script_name() for video in self.videos]
+        for video_script in video_scripts:
+            contents = contents.replace(video_script, self.video_script_file.name)
+
+        with open(self.script_file.name, 'w') as file:
+            file.write(contents)
+
+        exit_code = os.system(f'bash {self.script_file.name}')
+        self.assertEqual(0, exit_code)
+
+
+class TestWriteMainScriptWithoutVideos(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = {
+            'shared_variables': {
+                'var1': 'val1',
+                'var2': 'val2',
+                'var3': 'val3',
+            },
+            'shared_options': [
+                '-yes',
+                '-something'
+            ],
+            'videos': {
+            },
+            'option_templates': {
+                'something': "-yes -no -maybe"
+            }
+        }
+        self.config = Config(self.raw_config, 'export')
+        self.videos = build_video_configs(self.config, StaticVariableListProvider({}))
+        self.temporary_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+
+    def tearDown(self) -> None:
+        self.temporary_file.close()
+        os.unlink(self.temporary_file.name)
+
+    def test_written_script_executes_successfully(self):
+        write_main_script(self.temporary_file, self.videos, self.config.get_variables())
+        exit_code = os.system(f'bash {self.temporary_file.name}')
+        self.assertEqual(0, exit_code)
 
 
 if __name__ == '__main__':

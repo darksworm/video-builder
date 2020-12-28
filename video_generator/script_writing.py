@@ -1,36 +1,92 @@
-from typing import TextIO, List
+from typing import TextIO, List, Dict, final
 
 import bash_code
-from config import Config, VideoConfig
+from config import VideoConfig
 
 
-def create_script(path: str, name: str) -> TextIO:
-    f = open(f'{path}/{name}', 'w')
-    f.write('#!/bin/bash\nset -e -u\n\n')
-    return f
+class BashCodeBuilder:
+    def build(self) -> str:
+        raise NotImplementedError()
 
 
-def write_main_script(videos: List[VideoConfig], config: Config) -> None:
-    variables = config.get_variables()
-    with create_script(config.get_export_path(), 'generate.bash') as script:
-        write_bash_variables(script, variables)
-        write_video_script_calls(script, videos)
-        script.close()
+@final
+class StaticBashCodeBuilder(BashCodeBuilder):
+    def __init__(self, code):
+        self._code = code
+
+    def build(self):
+        return self._code + "\n"
 
 
-def write_video_script_calls(file_to: TextIO, videos: List[VideoConfig]) -> None:
-    calls = map(get_video_call_bash_code, videos)
-    file_to.write(' && \\\n'.join([c for c in calls]))
+@final
+class BashScript:
+    def __init__(self, file: TextIO, builders: List[BashCodeBuilder]):
+        self._file = file
+        self._code_builders = builders
+
+    def __del__(self):
+        self.close_file()
+
+    def _generate_bash(self):
+        fragments = [builder.build() for builder in self._code_builders]
+        return '\n'.join(fragments)
+
+    def write(self):
+        bash = self._generate_bash()
+        self._file.write(bash)
+
+    def close_file(self):
+        self._file.close()
 
 
-def write_video_scripts(videos: List[VideoConfig], config: Config) -> None:
+@final
+class BashVariableBuilder(BashCodeBuilder):
+    def __init__(self, variables: Dict[str, str]):
+        self._variables = variables
+
+    def build(self) -> str:
+        fragments = [f'{name}={value}\n' for name, value in self._variables.items()]
+        return '\n'.join(fragments)
+
+
+@final
+class BashVideoScriptCallBuilder(BashCodeBuilder):
+    def __init__(self, videos: List[VideoConfig]):
+        self._videos = videos
+
+    @staticmethod
+    def _get_video_script_call_code(video: VideoConfig) -> str:
+        return f'export {video.get_title()}_length=$(bash {video.get_script_name()})'
+
+    def build(self) -> str:
+        videos_code = map(self._get_video_script_call_code, self._videos)
+        joined_code = ' && \\\n'.join(videos_code)
+        return joined_code
+
+
+def write_main_script(file: TextIO, videos: List[VideoConfig], variables: Dict[str, str]) -> None:
+    code_builders = [
+        StaticBashCodeBuilder('#!/bin/bash'),
+        StaticBashCodeBuilder('set -e -u'),
+        BashVariableBuilder(variables),
+        BashVideoScriptCallBuilder(videos)
+    ]
+
+    script = BashScript(file, code_builders)
+    script.write()
+
+
+def create_file(path: str, name: str) -> TextIO:
+    return open(f'{path}/{name}', 'w')
+
+
+def write_video_scripts(videos: List[VideoConfig], script_path: str) -> None:
     for video in videos:
-        write_video_script(video, config)
+        write_video_script(video, script_path)
 
 
-def write_video_script(video: VideoConfig, config: Config) -> None:
-    file_path = config.get_export_path() + video.get_script_name()
-    with open(file_path, 'w') as video_file:
+def write_video_script(video: VideoConfig, script_path: str) -> None:
+    with create_file(script_path, video.get_script_name()) as video_file:
         write_video_variables(video_file, video)
         write_video_skip_logic(video_file, video)
         write_ffmpeg_command(video_file, video)
@@ -46,10 +102,6 @@ def write_video_skip_logic(file_to: TextIO, video: VideoConfig) -> None:
     if video.is_combination():
         file_to.write(bash_code.concat_video_md5)
     file_to.write(bash_code.skip_regenerate_existing_video)
-
-
-def get_video_call_bash_code(video: VideoConfig) -> str:
-    return f'export {video.get_title()}_length=$(bash {video.get_script_name()})'
 
 
 def write_video_metadata_code(file_to: TextIO) -> None:

@@ -14,13 +14,13 @@ import yaml
 
 from bash_code import static_video_variables
 from config import Config, build_video_configs, StaticVariableListProvider
-from script_writing import write_video_scripts, write_main_script
+from script_writing import write_video_scripts, write_main_script, create_file
 
 
-def run_main_script(config: Config):
-    os.chdir(config.get_export_path())
+def run_script(path: str, name: str) -> None:
+    os.chdir(path)
     os.system('chmod +x *.bash')
-    os.system('bash generate.bash')
+    os.system(f'bash {name}')
 
 
 def validate_arguments(arguments: list) -> None:
@@ -50,10 +50,14 @@ def main(arguments: list) -> None:
     config = create_config_from_arguments(arguments)
     video_configs = build_video_configs(config, StaticVariableListProvider(static_video_variables))
 
-    write_video_scripts(video_configs, config)
-    write_main_script(video_configs, config)
+    write_video_scripts(video_configs, config.get_export_path())
 
-    run_main_script(config)
+    main_script_name = 'generate.bash'
+    main_script = create_file(config.get_export_path(), main_script_name)
+
+    write_main_script(main_script, video_configs, config.get_variables())
+
+    run_script(config.get_export_path(), main_script_name)
 
 
 if __name__ == "__main__":
