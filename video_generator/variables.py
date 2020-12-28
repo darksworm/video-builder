@@ -6,14 +6,17 @@ def get_static_video_variables(video_title):
         'video_md5': '$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)'
     }
 
+
 def write_video_variables(file_to, video):
     write_bash_variables(file_to, video.config.get_variables())
     write_video_list_variable(file_to, video)
+
 
 def write_bash_variables(file_to, var_dict):
     for var, val in var_dict.items():
         file_to.write(f'{var}={val}\n')
     file_to.write('\n')
+
 
 def write_video_list_variable(file_to, video):
     if video.config.is_combination():

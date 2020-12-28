@@ -9,18 +9,19 @@
 
 import os
 import sys
-import subprocess
 
-from video import Video, create_videos
-from config import Config, load_yaml_config
-from script_writing import create_script, write_video_scripts, write_main_script
+from config import Config
+from script_writing import write_video_scripts, write_main_script
+from video import create_videos
 
-def run_main_script(config):
+
+def run_main_script(config: Config):
     os.chdir(config.get_export_path())
     os.system('chmod +x *.bash')
     os.system('bash generate.bash')
 
-def validate_arguments(arguments):
+
+def validate_arguments(arguments: list):
     if len(arguments) < 3:
         print('Please pass the config yaml and export path.')
         sys.exit(1)
@@ -29,21 +30,24 @@ def validate_arguments(arguments):
         print('Passed yaml file does not exist!')
         sys.exit(2)
 
-def create_config_from_arguments(arguments):
+
+def create_config_from_arguments(arguments: list):
     yaml_path = arguments[1]
     export_path = arguments[2]
     return Config(yaml_path, export_path)
 
-def main(arguments):
+
+def main(arguments: list):
     validate_arguments(arguments)
 
     config = create_config_from_arguments(arguments)
     videos = create_videos(config)
 
     write_video_scripts(videos, config)
-    write_main_script(videos,config)
+    write_main_script(videos, config)
 
     run_main_script(config)
+
 
 if __name__ == "__main__":
     main(sys.argv)

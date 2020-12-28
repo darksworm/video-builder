@@ -1,7 +1,7 @@
 from config import VideoConfig
-from variables import get_static_video_variables
 from option_templates import insert_option_templates
-from script_writing import create_script
+from variables import get_static_video_variables
+
 
 class Video:
     def __init__(self, config):
@@ -19,6 +19,7 @@ def create_videos(config):
 
     return videos
 
+
 def prepare_video_config(video_config_dict, global_config):
     video_config = VideoConfig(video_config_dict)
 
@@ -30,6 +31,7 @@ def prepare_video_config(video_config_dict, global_config):
 
     return VideoConfig(video_config_dict)
 
+
 def prepare_video_options(video_config, global_config):
     config_dict = \
         [*global_config.get_options(), *video_config.get_options()]
@@ -37,10 +39,10 @@ def prepare_video_options(video_config, global_config):
     templates = global_config.get_option_templates()
     return insert_option_templates(config_dict, templates)
 
+
 def prepare_video_variables(video_config, global_config):
     return {
         **global_config.get_variables(),
         **video_config.get_variables(),
         **get_static_video_variables(video_config.get_title())
     }
-

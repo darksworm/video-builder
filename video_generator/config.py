@@ -1,5 +1,6 @@
 import yaml
 
+
 class Config:
     def __init__(self, yaml_path, export_path):
         self._contents = load_yaml_config(yaml_path)
@@ -20,6 +21,7 @@ class Config:
     def get_export_path(self) -> str:
         return self._export_dir
 
+
 class VideoConfig:
     def __init__(self, config_dict):
         self._contents = config_dict
@@ -38,6 +40,7 @@ class VideoConfig:
 
     def get_title(self) -> str:
         return self._contents.get('title')
+
 
 def load_yaml_config(filename=""):
     with open(filename, 'r') as file:
