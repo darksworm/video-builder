@@ -1,20 +1,23 @@
-def get_template_options(preset_name, templates):
-    option_text = templates[preset_name]
+from typing import Dict, List
+
+
+def get_template_options_for_template_name(template_name: str, templates: Dict[str, str]) -> List[str]:
+    option_text = templates[template_name]
     split_options = option_text.splitlines(keepends=False)
     return split_options
 
 
-def insert_option_templates(option_list, templates):
-    inserted = []
+def replace_template_option_names_with_template_options(option_list: List[str], templates: Dict[str, str]) -> List[str]:
+    replaced = []
     for name in option_list:
         options = get_option_or_template_options_list(name, templates)
-        inserted = [*inserted, *options]
-    return inserted
+        replaced = [*replaced, *options]
+    return replaced
 
 
-def get_option_or_template_options_list(option, templates) -> list:
+def get_option_or_template_options_list(option: str, templates: Dict[str, str]) -> List[str]:
     if option in templates:
-        preset_options = get_template_options(option, templates)
+        preset_options = get_template_options_for_template_name(option, templates)
         return preset_options
     else:
         return [option]

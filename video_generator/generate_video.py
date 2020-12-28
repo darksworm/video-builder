@@ -10,9 +10,11 @@
 import os
 import sys
 
-from config import Config
+import yaml
+
+from bash_code import static_video_variables
+from config import Config, build_video_configs, StaticVariableListProvider
 from script_writing import write_video_scripts, write_main_script
-from video import create_videos
 
 
 def run_main_script(config: Config):
@@ -21,7 +23,7 @@ def run_main_script(config: Config):
     os.system('bash generate.bash')
 
 
-def validate_arguments(arguments: list):
+def validate_arguments(arguments: list) -> None:
     if len(arguments) < 3:
         print('Please pass the config yaml and export path.')
         sys.exit(1)
@@ -31,20 +33,25 @@ def validate_arguments(arguments: list):
         sys.exit(2)
 
 
-def create_config_from_arguments(arguments: list):
-    yaml_path = arguments[1]
-    export_path = arguments[2]
-    return Config(yaml_path, export_path)
+def load_yaml_config_from_file(filename: str) -> dict:
+    with open(filename, 'r') as file:
+        return yaml.load(file, Loader=yaml.FullLoader)
 
 
-def main(arguments: list):
+def create_config_from_arguments(arguments: list) -> Config:
+    [_, yaml_path, export_path] = arguments
+    raw_config = load_yaml_config_from_file(yaml_path)
+    return Config(raw_config, export_path)
+
+
+def main(arguments: list) -> None:
     validate_arguments(arguments)
 
     config = create_config_from_arguments(arguments)
-    videos = create_videos(config)
+    video_configs = build_video_configs(config, StaticVariableListProvider(static_video_variables))
 
-    write_video_scripts(videos, config)
-    write_main_script(videos, config)
+    write_video_scripts(video_configs, config)
+    write_main_script(video_configs, config)
 
     run_main_script(config)
 
