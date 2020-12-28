@@ -6,7 +6,13 @@ from option_templates import replace_template_option_names_with_template_options
 class Config:
     def __init__(self, config: dict, export_path):
         self._contents = config
-        self._export_dir = export_path + "/"
+        self._export_dir = self._add_trailing_slash(export_path)
+
+    @staticmethod
+    def _add_trailing_slash(filename: str):
+        if '/' != filename[-1]:
+            return filename + '/'
+        return filename
 
     def get_variables(self) -> Dict[str, str]:
         return self._contents.get('shared_variables', {})
@@ -45,9 +51,6 @@ class VideoConfig:
 
     def get_script_name(self) -> str:
         return f'export_{self.get_title()}.bash'
-
-    def __eq__(self, other):
-        return other._contents == self._contents
 
 
 class VideoVariableListProvider:

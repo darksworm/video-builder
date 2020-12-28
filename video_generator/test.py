@@ -5,7 +5,8 @@ from typing import Dict
 
 import psutil
 
-from config import VideoConfig, VideoVariableListProvider, StaticVariableListProvider, Config, VideoConfigBuilder
+from config import VideoConfig, VideoVariableListProvider, StaticVariableListProvider, Config, VideoConfigBuilder, \
+    build_video_configs
 from generate_video import validate_arguments, load_yaml_config_from_file
 
 
@@ -273,6 +274,139 @@ class TestVideoConfigBuilder(unittest.TestCase):
         built = builder.build()
 
         self.assertEqual(final_value, built.get_variables()[var_name])
+
+
+class TestEmptyConfig(unittest.TestCase):
+
+    def test_export_dir_ends_with_slash(self):
+        config = Config({}, 'export')
+        self.assertEqual('/', config.get_export_path()[-1])
+
+    def test_export_dir_doesnt_end_with_two_slashes(self):
+        config = Config({}, 'export/')
+        self.assertNotEqual('//', config.get_export_path()[-2:])
+
+    def test_passed_export_path_part_of_get_export_path(self):
+        name = 'export'
+        config = Config({}, name)
+        self.assertIn(name, config.get_export_path())
+
+    def test_get_options_returns_empty_list_if_none_provided(self):
+        config = Config({}, 'export')
+        self.assertEqual([], config.get_options())
+
+    def test_get_variables_returns_empty_dict_if_none_provided(self):
+        config = Config({}, 'export')
+        self.assertEqual({}, config.get_variables())
+
+    def test_get_option_templates_returns_empty_dict_if_none_provided(self):
+        config = Config({}, 'export')
+        self.assertEqual({}, config.get_option_templates())
+
+    def test_get_videos_returns_empty_dict_if_none_provided(self):
+        config = Config({}, 'export')
+        self.assertEqual({}, config.get_videos())
+
+
+class TestPopulatedConfig(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = {
+            'shared_variables': {
+                'var1': 'val1',
+                'var2': 'val2',
+                'var3': 'val3',
+            },
+            'shared_options': [
+                '-yes',
+                '-something'
+            ],
+            'videos': {
+                'video1': {
+                    'options': [
+                        '-no',
+                        'something'
+                    ]
+                },
+                'video2': {
+                    'options': [
+                        '-maybe'
+                    ]
+                }
+            },
+            'option_templates': {
+                'something': "-yes -no -maybe"
+            }
+        }
+        self.config = Config(self.raw_config, 'export')
+
+    def test_get_variables_returns_shared_variables(self):
+        expected = self.raw_config['shared_variables']
+        actual = self.config.get_variables()
+        self.assertEqual(expected, actual)
+
+    def test_get_options_returns_shared_options(self):
+        expected = self.raw_config['shared_options']
+        actual = self.config.get_options()
+        self.assertEqual(expected, actual)
+
+    def test_get_videos_returns_shared_videos(self):
+        expected = self.raw_config['videos']
+        actual = self.config.get_videos()
+        self.assertEqual(expected, actual)
+
+    def test_get_option_templates_returns_option_templates(self):
+        expected = self.raw_config['option_templates']
+        actual = self.config.get_option_templates()
+        self.assertEqual(expected, actual)
+
+
+class TestBuildVideoConfigs(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = {
+            'shared_variables': {
+                'var1': 'val1',
+                'var2': 'val2',
+                'var3': 'val3',
+            },
+            'shared_options': [
+                '-yes',
+                '-something'
+            ],
+            'videos': {
+                'video1': {
+                    'options': [
+                        '-no',
+                        'something'
+                    ]
+                },
+                'video2': {
+                    'options': [
+                        '-maybe'
+                    ]
+                }
+            },
+            'option_templates': {
+                'something': "-yes -no -maybe"
+            }
+        }
+        self.config = Config(self.raw_config, 'export')
+
+    def test_returned_video_count_matches_config(self):
+        video_count = len(self.config.get_videos())
+        config_count = len(build_video_configs(self.config, StaticVariableListProvider({})))
+        self.assertEqual(video_count, config_count)
+
+    def test_video_title_set(self):
+        configs = build_video_configs(self.config, StaticVariableListProvider({}))
+        for config in configs:
+            self.assertGreater(config.get_title(), "")
+
+    def test_video_titles_present(self):
+        configs = build_video_configs(self.config, StaticVariableListProvider({}))
+        expected_titles = [key for key, value in self.config.get_videos().items()]
+        config_titles = [config.get_title() for config in configs]
+
+        self.assertEqual(expected_titles, config_titles)
 
 
 if __name__ == '__main__':
