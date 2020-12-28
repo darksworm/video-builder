@@ -83,10 +83,12 @@ class VideoConfigBuilder:
         return VideoConfig(self.raw_config)
 
     def _build_options(self) -> List[str]:
-        config_dict = \
-            [*self.config.get_options(), *self.video_config.get_options()]
-
+        config_dict = [
+            *self.config.get_options(),
+            *self.video_config.get_options()
+        ]
         templates = self.config.get_option_templates()
+
         return replace_template_option_names_with_template_options(config_dict, templates)
 
     def _build_variables(self) -> Dict[str, str]:
