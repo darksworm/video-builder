@@ -1,9 +1,8 @@
 import unittest
-from typing import Dict
 from unittest import mock
 
-from config import VideoConfig, VideoVariableListProvider, StaticVariableListProvider, Config, VideoConfigBuilder, \
-    build_video_configs
+from config import VideoConfig, Config, \
+    create_video_configs_from_global_config
 from generate_video import validate_arguments
 
 
@@ -93,169 +92,6 @@ class TestPopulatedVideoConfigClass(unittest.TestCase):
 
     def test_title_returned_from_map(self):
         self.assertEqual(self.raw_config['title'], self.config.get_title())
-
-
-class TestVideoVariableListProvider(unittest.TestCase):
-    def setUp(self) -> None:
-        self.config = VideoConfig({})
-        self.provider = VideoVariableListProvider()
-
-    def test_base_class_raises_exception_on_get(self):
-        with self.assertRaises(NotImplementedError):
-            self.provider.get(self.config)
-
-
-class TestStaticVariableListProvider(unittest.TestCase):
-    def setUp(self) -> None:
-        self.video_title = "some_bond_flick"
-        self.video_config = VideoConfig({'title': self.video_title})
-
-    def provide(self, variable_map: Dict[str, str]):
-        provider = StaticVariableListProvider(variable_map)
-        return provider.get(self.video_config)
-
-    def test_nothing_replaced_if_no_video_title_in_contents(self):
-        variable_map = {
-            "filename": "poop.jpg",
-            "length": "30"
-        }
-        self.assertEqual(variable_map, self.provide(variable_map))
-
-    def test_variable_names_not_replaced(self):
-        variable_map = {
-            "{video_title}": "somethingstatic.mp4",
-            "{length}": "30",
-            "{}": "30",
-        }
-        self.assertEqual(variable_map, self.provide(variable_map))
-
-    def test_contents_change_when_video_title_replaced(self):
-        variable_map = {
-            "filename": "{video_title}.mp4"
-        }
-        self.assertNotEqual(variable_map, self.provide(variable_map))
-
-    def test_video_title_replaced(self):
-        variable_map = {
-            "filename": "{video_title}.mp4",
-        }
-        expected = f'{self.video_title}.mp4'
-        provided = self.provide(variable_map)['filename']
-        self.assertEqual(expected, provided)
-
-
-class TestVideoConfigBuilder(unittest.TestCase):
-    def setUp(self) -> None:
-        self.raw_video_config = {
-            'title': 'test',
-            'variables': {
-                'length': '30',
-                'file': 'dankmemes.jpg'
-            },
-            'options': [
-                '-y',
-                '-i $file'
-            ],
-            'combine': [
-                'video.mp4',
-                'other_video.mp4'
-            ]
-        }
-
-        self.config = Config({
-            'shared_variables': {
-                'things': 'aregood',
-                'stuff': 'isprettydecent'
-            },
-            'shared_options': [
-                '-loop 1',
-                '-shortest'
-            ]
-        }, 'export')
-
-        self.provider = StaticVariableListProvider({
-            "something": "else",
-            "and": "somemore",
-        })
-
-        self.builder = VideoConfigBuilder(self.raw_video_config, self.config, self.provider)
-
-        self.all_options = [
-            *self.raw_video_config['options'],
-            *self.config.get_options(),
-        ]
-
-        self.all_variables = {
-            **self.config.get_variables(),
-            **self.raw_video_config['variables'],
-            **self.provider.get(VideoConfig(self.raw_video_config))
-        }
-
-    def test_all_options_present_in_built_options(self):
-        built = self.builder.build()
-
-        for option in self.all_options:
-            self.assertIn(option, built.get_options())
-
-        for name, value in self.all_variables.items():
-            self.assertEqual(built.get_variables()[name], value)
-
-    def test_provider_overwrites_global_config_variable(self):
-        var_name = 'this_variable'
-        final_value = "is_good"
-        config = Config({
-            'shared_variables': {
-                var_name: 'isbad'
-            }
-        }, 'export')
-        provider = StaticVariableListProvider({
-            var_name: final_value,
-        })
-
-        builder = VideoConfigBuilder(self.raw_video_config, config, provider)
-        built = builder.build()
-        self.assertEqual(final_value, built.get_variables()[var_name])
-
-    def test_provider_overwrites_video_config_variable(self):
-        var_name = 'this_variable'
-        final_value = "is_good"
-
-        raw_video_config = {
-            'title': 'yea',
-            'variables': {
-                var_name: 'not_good'
-            }
-        }
-
-        provider = StaticVariableListProvider({
-            var_name: final_value,
-        })
-
-        builder = VideoConfigBuilder(raw_video_config, self.config, provider)
-        built = builder.build()
-
-        self.assertEqual(final_value, built.get_variables()[var_name])
-
-    def test_video_variable_overwrites_global_variable(self):
-        var_name = 'this_variable'
-        final_value = "is_good"
-
-        raw_video_config = {
-            'title': 'yea',
-            'variables': {
-                var_name: final_value
-            }
-        }
-        config = Config({
-            'shared_variables': {
-                var_name: 'isbad'
-            }
-        }, 'export')
-
-        builder = VideoConfigBuilder(raw_video_config, config, self.provider)
-        built = builder.build()
-
-        self.assertEqual(final_value, built.get_variables()[var_name])
 
 
 class TestEmptyConfig(unittest.TestCase):
@@ -375,20 +211,40 @@ class TestBuildVideoConfigs(unittest.TestCase):
 
     def test_returned_video_count_matches_config(self):
         video_count = len(self.config.get_videos())
-        config_count = len(build_video_configs(self.config, StaticVariableListProvider({})))
+        config_count = len(create_video_configs_from_global_config(self.config, {}))
         self.assertEqual(video_count, config_count)
 
     def test_video_title_set(self):
-        configs = build_video_configs(self.config, StaticVariableListProvider({}))
+        configs = create_video_configs_from_global_config(self.config, {})
         for config in configs:
             self.assertGreater(config.get_title(), "")
 
     def test_video_titles_present(self):
-        configs = build_video_configs(self.config, StaticVariableListProvider({}))
+        configs = create_video_configs_from_global_config(self.config, {})
         expected_titles = [key for key, value in self.config.get_videos().items()]
         config_titles = [config.get_title() for config in configs]
 
         self.assertEqual(expected_titles, config_titles)
+
+    def test_video_script_path_set(self):
+        configs = create_video_configs_from_global_config(self.config, {})
+        for config in configs:
+            self.assertNotEqual("", config.get_script_path())
+
+    def test_video_script_path_contains_name(self):
+        configs = create_video_configs_from_global_config(self.config, {})
+        for config in configs:
+            self.assertIn(config.get_script_name(), config.get_script_path())
+
+    def test_video_script_path_contains_export_path(self):
+        configs = create_video_configs_from_global_config(self.config, {})
+        for config in configs:
+            self.assertIn(self.config.get_export_path(), config.get_script_path())
+
+    def test_video_script_path_contains_slash(self):
+        configs = create_video_configs_from_global_config(self.config, {})
+        for config in configs:
+            self.assertIn('/', config.get_script_path())
 
 
 if __name__ == '__main__':

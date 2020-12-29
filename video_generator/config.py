@@ -1,4 +1,4 @@
-from typing import List, Dict, final
+from typing import List, Dict
 
 from option_templates import replace_template_option_names_with_template_options
 
@@ -52,61 +52,57 @@ class VideoConfig:
     def get_script_name(self) -> str:
         return f'export_{self.get_title()}.bash'
 
-
-class VideoVariableListProvider:
-    def get(self, video_config: VideoConfig) -> Dict[str, str]:
-        raise NotImplementedError()
+    def get_script_path(self) -> str:
+        return self._contents.get('script_dir') + self.get_script_name()
 
 
-@final
-class StaticVariableListProvider(VideoVariableListProvider):
-    def __init__(self, variable_map: Dict[str, str]):
-        self.variable_map = variable_map
+class VideoConfigListBuilder:
+    def __init__(self, configs: Dict[str, dict]):
+        self._configs = configs
 
-    def get(self, video_config: VideoConfig):
-        replaced_map = {}
-        title = video_config.get_title()
-        for variable_name, variable_contents in self.variable_map.items():
-            replaced_map[variable_name] = variable_contents.replace('{video_title}', title)
+    def add_title_and_script_dir(self, script_dir: str) -> 'VideoConfigListBuilder':
+        for title, video_config in self._configs.items():
+            video_config['title'] = title
+            video_config['script_dir'] = script_dir
+        return self
 
-        return replaced_map
+    def prepend_variables(self, variables: Dict[str, str]) -> 'VideoConfigListBuilder':
+        for _, config in self._configs.items():
+            config['variables'] = {**variables, **config.get('variables', {})}
+        return self
 
+    def append_variables(self, variables: Dict[str, str]) -> 'VideoConfigListBuilder':
+        for _, config in self._configs.items():
+            config['variables'] = {**config.get('variables', {}), **variables}
+        return self
 
-class VideoConfigBuilder:
-    def __init__(self, raw_video_config: dict, config: Config, variable_provider: VideoVariableListProvider):
-        self.config = config
-        self.raw_config = raw_video_config
-        self.video_config = VideoConfig(self.raw_config)
-        self.variable_provider = variable_provider
+    def prepend_options(self, options: List[str]) -> 'VideoConfigListBuilder':
+        for _, config in self._configs.items():
+            config['options'] = [*options, *config.get('options', [])]
+        return self
 
-    def build(self) -> VideoConfig:
-        self.raw_config['variables'] = self._build_variables()
-        self.raw_config['options'] = self._build_options()
+    def replace_template_option_names(self, option_templates: Dict[str, str]) -> 'VideoConfigListBuilder':
+        for _, config in self._configs.items():
+            config['options'] = replace_template_option_names_with_template_options(config.get('options', []),
+                                                                                    option_templates)
+        return self
 
-        return VideoConfig(self.raw_config)
+    def replace_variable_references(self) -> 'VideoConfigListBuilder':
+        for title, config in self._configs.items():
+            for variable_name, variable_contents in config['variables'].items():
+                config['variables'][variable_name] = str(variable_contents).replace('{video_title}', title)
+        return self
 
-    def _build_options(self) -> List[str]:
-        config_dict = [
-            *self.config.get_options(),
-            *self.video_config.get_options()
-        ]
-        templates = self.config.get_option_templates()
-
-        return replace_template_option_names_with_template_options(config_dict, templates)
-
-    def _build_variables(self) -> Dict[str, str]:
-        return {
-            **self.config.get_variables(),
-            **self.video_config.get_variables(),
-            **self.variable_provider.get(self.video_config)
-        }
+    def build(self) -> List[VideoConfig]:
+        return [VideoConfig(config) for _, config in self._configs.items()]
 
 
-def build_video_configs(config: Config, variable_provider: VideoVariableListProvider) -> List[VideoConfig]:
-    video_configs = []
-    for title, video_config in config.get_videos().items():
-        video_config['title'] = title
-        builder = VideoConfigBuilder(video_config, config, variable_provider)
-        video_configs.append(builder.build())
-
-    return video_configs
+def create_video_configs_from_global_config(config: Config, append_variables: Dict[str, str]) -> List[VideoConfig]:
+    return VideoConfigListBuilder(config.get_videos()) \
+        .add_title_and_script_dir(config.get_export_path()) \
+        .prepend_variables(config.get_variables()) \
+        .append_variables(append_variables) \
+        .prepend_options(config.get_options()) \
+        .replace_template_option_names(config.get_option_templates()) \
+        .replace_variable_references() \
+        .build()

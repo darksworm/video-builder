@@ -76,17 +76,17 @@ def write_main_script(file: TextIO, videos: List[VideoConfig], variables: Dict[s
     script.write()
 
 
-def create_file(path: str, name: str) -> TextIO:
+def create_file(path: str, name: str = "") -> TextIO:
     return open(f'{path}{name}', 'w')
 
 
-def write_video_scripts(videos: List[VideoConfig], script_path: str) -> None:
+def write_video_scripts(videos: List[VideoConfig]) -> None:
     for video in videos:
-        write_video_script(video, script_path)
+        write_video_script(video)
 
 
-def write_video_script(video: VideoConfig, script_path: str) -> None:
-    with create_file(script_path, video.get_script_name()) as video_file:
+def write_video_script(video: VideoConfig) -> None:
+    with create_file(video.get_script_path()) as video_file:
         write_video_variables(video_file, video)
         write_video_skip_logic(video_file, video)
         write_ffmpeg_command(video_file, video)

@@ -13,7 +13,7 @@ from sys import exit, argv
 import yaml
 
 from bash_code import static_video_variables
-from config import Config, build_video_configs, StaticVariableListProvider
+from config import Config, create_video_configs_from_global_config
 from script_writing import write_video_scripts, write_main_script, create_file
 
 
@@ -48,9 +48,9 @@ def main(arguments: list) -> int:
     validate_arguments(arguments)
 
     config = create_config_from_arguments(arguments)
-    video_configs = build_video_configs(config, StaticVariableListProvider(static_video_variables))
+    video_configs = create_video_configs_from_global_config(config, append_variables=static_video_variables)
 
-    write_video_scripts(video_configs, config.get_export_path())
+    write_video_scripts(video_configs)
 
     main_script_name = 'generate.bash'
     main_script = create_file(config.get_export_path(), main_script_name)
