@@ -1,32 +1,32 @@
 import unittest
 from unittest import mock
 
+import generate_videos
 from config import VideoConfig, Config, \
     create_video_configs_from_global_config
-from generate_video import validate_arguments
+from generate_videos import are_cli_arguments_valid
 
 
 class TestMainExecuted(unittest.TestCase):
-    def test_main_executed(self):
-        import generate_video
-        with mock.patch.object(generate_video, "main", return_value=42):
-            with mock.patch.object(generate_video, "__name__", "__main__"):
-                with mock.patch.object(generate_video, 'exit') as mock_exit:
-                    generate_video.init()
-                    self.assertEqual(42, mock_exit.call_args[0][0])
+    def test_generate_videos_executed(self):
+        with mock.patch.object(generate_videos, "generate_videos", return_value=42):
+            with mock.patch.object(generate_videos, "__name__", "__main__"):
+                with mock.patch.object(generate_videos, 'are_cli_arguments_valid', return_value=1):
+                    with mock.patch.object(generate_videos, 'argv', ['', '', '']):
+                        with mock.patch.object(generate_videos, 'exit') as mock_exit:
+                            generate_videos.init()
+                            self.assertEqual(42, mock_exit.call_args[0][0])
 
 
 class TestValidateArguments(unittest.TestCase):
-    def test_validate_arguments_exits_on_less_than_3_args(self):
+    def test_validate_arguments_false_on_less_than_3_args(self):
         fail_cases = [[1, 2], [1], []]
 
         for fail_case in fail_cases:
-            with self.assertRaises(SystemExit):
-                validate_arguments(fail_case)
+            self.assertFalse(are_cli_arguments_valid(fail_case))
 
-    def test_validate_arguments_exits_on_nonexistant_file(self):
-        with self.assertRaises(SystemExit):
-            validate_arguments(["something!!!", "", ""])
+    def test_validate_arguments_false_on_nonexistant_file(self):
+        self.assertFalse(are_cli_arguments_valid(["something!!!", "", ""]))
 
 
 class TextEmptyVideoConfigClass(unittest.TestCase):
@@ -97,32 +97,32 @@ class TestPopulatedVideoConfigClass(unittest.TestCase):
 class TestEmptyConfig(unittest.TestCase):
 
     def test_export_dir_ends_with_slash(self):
-        config = Config({}, 'export')
+        config = Config({}, 'export', 'generate.bash')
         self.assertEqual('/', config.get_export_path()[-1])
 
     def test_export_dir_doesnt_end_with_two_slashes(self):
-        config = Config({}, 'export/')
+        config = Config({}, 'export/', 'generate.bash')
         self.assertNotEqual('//', config.get_export_path()[-2:])
 
     def test_passed_export_path_part_of_get_export_path(self):
         name = 'export'
-        config = Config({}, name)
+        config = Config({}, name, 'generate.bash')
         self.assertIn(name, config.get_export_path())
 
     def test_get_options_returns_empty_list_if_none_provided(self):
-        config = Config({}, 'export')
+        config = Config({}, 'export', 'generate.bash')
         self.assertEqual([], config.get_options())
 
     def test_get_variables_returns_empty_dict_if_none_provided(self):
-        config = Config({}, 'export')
+        config = Config({}, 'export', 'generate.bash')
         self.assertEqual({}, config.get_variables())
 
     def test_get_option_templates_returns_empty_dict_if_none_provided(self):
-        config = Config({}, 'export')
+        config = Config({}, 'export', 'generate.bash')
         self.assertEqual({}, config.get_option_templates())
 
     def test_get_videos_returns_empty_dict_if_none_provided(self):
-        config = Config({}, 'export')
+        config = Config({}, 'export', 'generate.bash')
         self.assertEqual({}, config.get_videos())
 
 
@@ -155,7 +155,7 @@ class TestPopulatedConfig(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export')
+        self.config = Config(self.raw_config, 'export', 'generate.bash')
 
     def test_get_variables_returns_shared_variables(self):
         expected = self.raw_config['shared_variables']
@@ -207,7 +207,7 @@ class TestBuildVideoConfigs(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export')
+        self.config = Config(self.raw_config, 'export', 'generate.bash')
 
     def test_returned_video_count_matches_config(self):
         video_count = len(self.config.get_videos())

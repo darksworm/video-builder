@@ -8,8 +8,8 @@ from io import StringIO
 import psutil
 
 from config import Config, create_video_configs_from_global_config
-from generate_video import load_yaml_config_from_file, main
-from script_writing import StaticBashCodeBuilder, BashScript, BashCodeBuilder, write_main_script
+from generate_videos import load_yaml_config_from_file, generate_videos
+from script_writing import StaticBashCodeBuilder, BashScriptWriter, BashCodeBuilder, write_main_script
 
 
 class TestYamlConfigLoader(unittest.TestCase):
@@ -48,7 +48,7 @@ class TestBashScript(unittest.TestCase):
         ]
 
         self.mock_file = StringIO()
-        self.script = BashScript(self.mock_file, writers)
+        self.script = BashScriptWriter(self.mock_file, writers)
         self.script.write()
 
     def tearDown(self) -> None:
@@ -123,7 +123,7 @@ class TestWriteMainScript(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export')
+        self.config = Config(self.raw_config, 'export', 'generate.bash')
         self.videos = create_video_configs_from_global_config(self.config, {})
         self.script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
 
@@ -136,12 +136,8 @@ class TestWriteMainScript(unittest.TestCase):
             file.close()
             os.unlink(file.name)
 
-    def test_file_closed_after_writing(self):
-        write_main_script(self.script_file, self.videos, self.config.get_variables())
-        self.assertTrue(self.script_file.closed)
-
     def write_and_get_contents(self):
-        write_main_script(self.script_file, self.videos, self.config.get_variables())
+        write_main_script(self.script_file.name, self.videos, self.config.get_variables())
         with open(self.script_file.name, 'r') as file:
             return file.read()
 
@@ -194,7 +190,7 @@ class TestWriteMainScriptWithoutVideos(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export')
+        self.config = Config(self.raw_config, 'export', 'generate.bash')
         self.videos = create_video_configs_from_global_config(self.config, {})
         self.temporary_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
 
@@ -203,7 +199,7 @@ class TestWriteMainScriptWithoutVideos(unittest.TestCase):
         os.unlink(self.temporary_file.name)
 
     def test_written_script_executes_successfully(self):
-        write_main_script(self.temporary_file, self.videos, self.config.get_variables())
+        write_main_script(self.temporary_file.name, self.videos, self.config.get_variables())
         exit_code = os.system(f'bash {self.temporary_file.name}')
         self.assertEqual(0, exit_code)
 
@@ -260,7 +256,7 @@ class Test3SecondBlankVideoCreated(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_video_length_matches(self):
-        main(['generate_video.py', self.config_file.name, self.temp_dir])
+        generate_videos(self.config_file.name, self.temp_dir)
         actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
         actual = actual.decode('UTF-8').rstrip()
         self.assertEqual(str(self.duration), str(actual))
@@ -338,7 +334,7 @@ class TestCombineWithBlankVideos(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_video_length_matches(self):
-        main(['generate_video.py', self.config_file.name, self.temp_dir])
+        generate_videos(self.config_file.name, self.temp_dir)
         actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
         actual = actual.decode('UTF-8').rstrip()
         self.assertEqual(str(self.video1['duration'] + self.video2['duration']), str(actual))

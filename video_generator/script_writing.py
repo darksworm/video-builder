@@ -19,16 +19,16 @@ class StaticBashCodeBuilder(BashCodeBuilder):
 
 
 @final
-class BashScript:
+class BashScriptWriter:
     def __init__(self, file: TextIO, builders: List[BashCodeBuilder]):
         self._file = file
-        self._code_builders = builders
+        self._builders = builders
 
     def __del__(self):
         self.close_file()
 
     def _generate_bash(self):
-        fragments = [builder.build() for builder in self._code_builders]
+        fragments = [builder.build() for builder in self._builders]
         return '\n'.join(fragments)
 
     def write(self):
@@ -64,16 +64,17 @@ class BashVideoScriptCallBuilder(BashCodeBuilder):
         return joined_code
 
 
-def write_main_script(file: TextIO, videos: List[VideoConfig], variables: Dict[str, str]) -> None:
-    code_builders = [
-        StaticBashCodeBuilder('#!/bin/bash'),
-        StaticBashCodeBuilder('set -e -u'),
-        BashVariableBuilder(variables),
-        BashVideoScriptCallBuilder(videos)
-    ]
+def write_main_script(file_path: str, videos: List[VideoConfig], variables: Dict[str, str]) -> None:
+    with create_file(file_path) as file:
+        code_builders = [
+            StaticBashCodeBuilder('#!/bin/bash'),
+            StaticBashCodeBuilder('set -e -u'),
+            BashVariableBuilder(variables),
+            BashVideoScriptCallBuilder(videos)
+        ]
 
-    script = BashScript(file, code_builders)
-    script.write()
+        script = BashScriptWriter(file, code_builders)
+        script.write()
 
 
 def create_file(path: str, name: str = "") -> TextIO:
