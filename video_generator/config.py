@@ -1,7 +1,5 @@
 from typing import List, Dict
 
-from option_templates import replace_template_option_names_with_template_options
-
 
 class Config:
     def __init__(self, config: dict, export_path):
@@ -81,12 +79,6 @@ class VideoConfigListBuilder:
             config['options'] = [*options, *config.get('options', [])]
         return self
 
-    def replace_template_option_names(self, option_templates: Dict[str, str]) -> 'VideoConfigListBuilder':
-        for _, config in self._configs.items():
-            config['options'] = replace_template_option_names_with_template_options(config.get('options', []),
-                                                                                    option_templates)
-        return self
-
     def replace_variable_references(self) -> 'VideoConfigListBuilder':
         for title, config in self._configs.items():
             for variable_name, variable_contents in config['variables'].items():
@@ -95,6 +87,36 @@ class VideoConfigListBuilder:
 
     def build(self) -> List[VideoConfig]:
         return [VideoConfig(config) for _, config in self._configs.items()]
+
+    class _TemplateReplacer:
+        @classmethod
+        def replace_template_names_with_options(cls, option_list: List[str], templates: Dict[str, str]) -> List[str]:
+            replaced = []
+            for name in option_list:
+                options = cls._get_option_or_template_options_list(name, templates)
+                replaced = [*replaced, *options]
+            return replaced
+
+        @staticmethod
+        def _get_template_options_for_template_name(template_name: str, templates: Dict[str, str]) -> List[str]:
+            option_text = templates[template_name]
+            split_options = option_text.splitlines(keepends=False)
+            return split_options
+
+        @classmethod
+        def _get_option_or_template_options_list(cls, option: str, templates: Dict[str, str]) -> List[str]:
+            if option in templates:
+                preset_options = cls._get_template_options_for_template_name(option, templates)
+                return preset_options
+            else:
+                return [option]
+
+    def replace_template_option_names(self, option_templates: Dict[str, str]) -> 'VideoConfigListBuilder':
+        replacer = VideoConfigListBuilder._TemplateReplacer
+        for _, config in self._configs.items():
+            options = config.get('options', [])
+            config['options'] = replacer.replace_template_names_with_options(options, option_templates)
+        return self
 
 
 def create_video_configs_from_global_config(config: Config, append_variables: Dict[str, str]) -> List[VideoConfig]:
