@@ -8,7 +8,7 @@
 # see usage.md for more info
 
 import os
-import sys
+from sys import exit, argv
 
 import yaml
 
@@ -26,11 +26,11 @@ def run_script(path: str, name: str) -> None:
 def validate_arguments(arguments: list) -> None:
     if len(arguments) < 3:
         print('Please pass the config yaml and export path.')
-        sys.exit(1)
+        exit(1)
 
     if not os.path.exists(arguments[1]):
         print('Passed yaml file does not exist!')
-        sys.exit(2)
+        exit(2)
 
 
 def load_yaml_config_from_file(filename: str) -> dict:
@@ -44,7 +44,7 @@ def create_config_from_arguments(arguments: list) -> Config:
     return Config(raw_config, export_path)
 
 
-def main(arguments: list) -> None:
+def main(arguments: list) -> int:
     validate_arguments(arguments)
 
     config = create_config_from_arguments(arguments)
@@ -59,6 +59,12 @@ def main(arguments: list) -> None:
 
     run_script(config.get_export_path(), main_script_name)
 
+    return 0
 
-if __name__ == "__main__":
-    main(sys.argv)
+
+def init():
+    if __name__ == "__main__":
+        exit(main(argv))
+
+
+init()
