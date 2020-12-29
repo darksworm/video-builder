@@ -77,7 +77,7 @@ def write_main_script(file: TextIO, videos: List[VideoConfig], variables: Dict[s
 
 
 def create_file(path: str, name: str) -> TextIO:
-    return open(f'{path}/{name}', 'w')
+    return open(f'{path}{name}', 'w')
 
 
 def write_video_scripts(videos: List[VideoConfig], script_path: str) -> None:

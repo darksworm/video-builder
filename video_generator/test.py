@@ -1,4 +1,6 @@
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from io import StringIO
@@ -8,7 +10,7 @@ import psutil
 
 from config import VideoConfig, VideoVariableListProvider, StaticVariableListProvider, Config, VideoConfigBuilder, \
     build_video_configs
-from generate_video import validate_arguments, load_yaml_config_from_file
+from generate_video import validate_arguments, load_yaml_config_from_file, main
 from script_writing import BashScript, BashCodeBuilder, StaticBashCodeBuilder, write_main_script
 
 
@@ -453,6 +455,13 @@ class TestBashCodeWriter(unittest.TestCase):
             writer.build()
 
 
+class TestStaticBashCodeBuilder(unittest.TestCase):
+    def test_built_code_contains_passed_code(self):
+        passed_code = "random_gibberish and such"
+        builder = StaticBashCodeBuilder(passed_code)
+        self.assertIn(passed_code, builder.build())
+
+
 class TestWriteMainScript(unittest.TestCase):
     def setUp(self) -> None:
         self.raw_config = {
@@ -573,6 +582,142 @@ class TestWriteMainScriptWithoutVideos(unittest.TestCase):
         write_main_script(self.temporary_file, self.videos, self.config.get_variables())
         exit_code = os.system(f'bash {self.temporary_file.name}')
         self.assertEqual(0, exit_code)
+
+
+class Test3SecondBlankVideoCreated(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = '/tmp/python_test'
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        os.mkdir(self.temp_dir)
+
+        self.duration = 3
+
+        self.video_name = f'darkness_{self.duration}_sec'
+
+        self.config_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.config_file.write(f"""\
+            shared_options:
+              - -y
+              - -v warning
+              - -hide_banner
+              - -stats
+
+            shared_variables:
+              fps: 24
+
+            option_templates:
+              shared_options: |-
+                -c:v h264
+                -r $fps
+
+            videos:
+              {self.video_name}:
+                variables:
+                  duration: {self.duration}
+                options:
+                  - -f lavfi
+                  - -i color=size=1920x1080:duration=$duration:rate=$fps:color=black
+                  - -t $duration
+                  - shared_options
+        """)
+        self.config_file.close()
+
+        self.probe_script = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.probe_script.write(f"""
+            ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \
+            {self.temp_dir}/{self.video_name}.mp4 | cut -d. -f1
+        """)
+        self.probe_script.close()
+
+    def tearDown(self) -> None:
+        self.config_file.close()
+        os.unlink(self.config_file.name)
+        os.unlink(self.probe_script.name)
+        shutil.rmtree(self.temp_dir)
+
+    def test_video_length_matches(self):
+        main(['generate_video.py', self.config_file.name, self.temp_dir])
+        actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
+        actual = actual.decode('UTF-8').rstrip()
+        self.assertEqual(str(self.duration), str(actual))
+
+
+class TestCombineWithBlankVideos(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = '/tmp/python_test'
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        os.mkdir(self.temp_dir)
+
+        self.video1 = {
+            'duration': 2,
+            'name': 'video1'
+        }
+        self.video2 = {
+            'duration': 3,
+            'name': 'video2'
+        }
+
+        self.combine_video_name = 'result'
+
+        self.config_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.config_file.write(f"""\
+            shared_options:
+              - -y
+              - -v warning
+              - -hide_banner
+              - -stats
+
+            shared_variables:
+              fps: 24
+
+            option_templates:
+              shared_options: |-
+                -f lavfi
+                -i color=size=1920x1080:duration=$duration:rate=$fps:color=black
+                -f lavfi
+                -i anullsrc=channel_layout=stereo:sample_rate=44100
+                -t $duration
+                -c:v h264
+                -r $fps
+
+            videos:
+              {self.video1['name']}:
+                variables:
+                  duration: {self.video1['duration']}
+                options:
+                  - shared_options
+
+              {self.video2['name']}:
+                variables:
+                  duration: {self.video2['duration']}
+                options:
+                  - shared_options
+
+              {self.combine_video_name}:
+                combine:
+                  - {self.video1['name']}
+                  - {self.video2['name']}
+        """)
+        self.config_file.close()
+
+        self.probe_script = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.probe_script.write(f"""
+            ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \
+            {self.temp_dir}/{self.combine_video_name}.mp4 | cut -d. -f1
+        """)
+        self.probe_script.close()
+
+    def tearDown(self) -> None:
+        self.config_file.close()
+        os.unlink(self.config_file.name)
+        os.unlink(self.probe_script.name)
+        shutil.rmtree(self.temp_dir)
+
+    def test_video_length_matches(self):
+        main(['generate_video.py', self.config_file.name, self.temp_dir])
+        actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
+        actual = actual.decode('UTF-8').rstrip()
+        self.assertEqual(str(self.video1['duration'] + self.video2['duration']), str(actual))
 
 
 if __name__ == '__main__':

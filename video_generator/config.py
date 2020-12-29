@@ -9,10 +9,10 @@ class Config:
         self._export_dir = self._add_trailing_slash(export_path)
 
     @staticmethod
-    def _add_trailing_slash(filename: str):
-        if '/' != filename[-1]:
-            return filename + '/'
-        return filename
+    def _add_trailing_slash(directory: str):
+        if '/' != directory[-1:]:
+            return directory + '/'
+        return directory
 
     def get_variables(self) -> Dict[str, str]:
         return self._contents.get('shared_variables', {})
