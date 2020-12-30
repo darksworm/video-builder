@@ -13,7 +13,7 @@ from sys import argv
 import yaml
 
 from bash_code import static_video_variables
-from config import Config, create_video_configs_from_global_config
+from config import Config, build_video_configs_from_global_config
 from script_writing import write_video_scripts, write_main_script
 
 
@@ -24,7 +24,7 @@ def generate_videos(yaml_file_path: str, export_path: str) -> int:
 
 
 def generate_scripts(config: Config) -> None:
-    video_configs = create_video_configs_from_global_config(config, append_variables=static_video_variables)
+    video_configs = build_video_configs_from_global_config(config, appendable_variables=static_video_variables)
     write_video_scripts(video_configs)
     write_main_script(config.get_script_path(), video_configs, config.get_variables())
 

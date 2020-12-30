@@ -1,4 +1,5 @@
-from typing import List, Dict
+from abc import ABC
+from typing import List, Dict, final
 
 
 class Config:
@@ -61,77 +62,147 @@ class VideoConfig:
         return self._contents.get('script_dir') + self.get_script_name()
 
 
-class VideoConfigListBuilder:
-    def __init__(self, configs: Dict[str, dict]):
-        self._configs = configs
+class VideoConfigListPreprocessor:
+    def process_one(self, title: str, config: dict) -> dict:
+        raise NotImplementedError()
 
-    def add_title_and_script_dir(self, script_dir: str) -> 'VideoConfigListBuilder':
-        for title, video_config in self._configs.items():
-            video_config['title'] = title
-            video_config['script_dir'] = script_dir
-        return self
-
-    def prepend_variables(self, variables: Dict[str, str]) -> 'VideoConfigListBuilder':
-        for _, config in self._configs.items():
-            config['variables'] = {**variables, **config.get('variables', {})}
-        return self
-
-    def append_variables(self, variables: Dict[str, str]) -> 'VideoConfigListBuilder':
-        for _, config in self._configs.items():
-            config['variables'] = {**config.get('variables', {}), **variables}
-        return self
-
-    def prepend_options(self, options: List[str]) -> 'VideoConfigListBuilder':
-        for _, config in self._configs.items():
-            config['options'] = [*options, *config.get('options', [])]
-        return self
-
-    def replace_variable_references(self) -> 'VideoConfigListBuilder':
-        for title, config in self._configs.items():
-            for variable_name, variable_contents in config['variables'].items():
-                config['variables'][variable_name] = str(variable_contents).replace('{video_title}', title)
-        return self
-
-    def build(self) -> List[VideoConfig]:
-        return [VideoConfig(config) for _, config in self._configs.items()]
-
-    class _TemplateReplacer:
-        @classmethod
-        def replace_template_names_with_options(cls, option_list: List[str], templates: Dict[str, str]) -> List[str]:
-            replaced = []
-            for name in option_list:
-                options = cls._get_option_or_template_options_list(name, templates)
-                replaced = [*replaced, *options]
-            return replaced
-
-        @staticmethod
-        def _get_template_options_for_template_name(template_name: str, templates: Dict[str, str]) -> List[str]:
-            option_text = templates[template_name]
-            split_options = option_text.splitlines(keepends=False)
-            return split_options
-
-        @classmethod
-        def _get_option_or_template_options_list(cls, option: str, templates: Dict[str, str]) -> List[str]:
-            if option in templates:
-                preset_options = cls._get_template_options_for_template_name(option, templates)
-                return preset_options
-            else:
-                return [option]
-
-    def replace_template_option_names(self, option_templates: Dict[str, str]) -> 'VideoConfigListBuilder':
-        replacer = VideoConfigListBuilder._TemplateReplacer
-        for _, config in self._configs.items():
-            options = config.get('options', [])
-            config['options'] = replacer.replace_template_names_with_options(options, option_templates)
-        return self
+    def process(self, config: Dict[str, dict], video_title: str) -> Dict[str, dict]:
+        return self.process_one(video_title, config)
 
 
-def create_video_configs_from_global_config(config: Config, append_variables: Dict[str, str]) -> List[VideoConfig]:
-    return VideoConfigListBuilder(config.get_videos()) \
-        .add_title_and_script_dir(config.get_export_path()) \
-        .prepend_variables(config.get_variables()) \
-        .append_variables(append_variables) \
-        .prepend_options(config.get_options()) \
-        .replace_template_option_names(config.get_option_templates()) \
-        .replace_variable_references() \
-        .build()
+@final
+class VideoConfigTitleAdder(VideoConfigListPreprocessor):
+    def process_one(self, title: str, config: dict) -> dict:
+        return {**config, **{'title': title}}
+
+
+@final
+class VideoConfigScriptDirAdder(VideoConfigListPreprocessor):
+    def __init__(self, script_dir: str):
+        self._script_dir = script_dir
+
+    def process_one(self, title: str, config: dict) -> dict:
+        return {**config, **{'script_dir': self._script_dir}}
+
+
+class VideoConfigVariablePreprocessor(VideoConfigListPreprocessor, ABC):
+    def __init__(self, variables: Dict[str, str]):
+        self._variables = variables
+
+
+@final
+class VideoConfigVariableAppender(VideoConfigVariablePreprocessor):
+    def process_one(self, title: str, config: dict) -> dict:
+        config['variables'] = {**config.get('variables', {}), **self._variables}
+        return config
+
+
+@final
+class VideoConfigVariablePrepender(VideoConfigVariablePreprocessor):
+    def process_one(self, title: str, config: dict) -> dict:
+        config['variables'] = {**self._variables, **config.get('variables', {})}
+        return config
+
+
+@final
+class VideoConfigOptionPrepender(VideoConfigListPreprocessor):
+    def __init__(self, options: List[str]):
+        self._options = options
+
+    def process_one(self, title: str, config: dict) -> dict:
+        config['options'] = [*self._options, *config.get('options', [])]
+        return config
+
+
+class VideoConfigReferenceReplacer(VideoConfigListPreprocessor, ABC):
+    def __init__(self, reference_map: Dict[str, str]):
+        self._reference_map = reference_map
+
+
+@final
+class VideoConfigVariableReferenceReplacer(VideoConfigReferenceReplacer):
+    @staticmethod
+    def _replace_reference(reference_name: str, reference_value: str, items: dict) -> dict:
+        for variable_name, variable_value in items.items():
+            items[variable_name] = str(variable_value).replace(reference_name, reference_value)
+        return items
+
+    def process_one(self, title: str, config: dict) -> dict:
+        for reference_name, reference_value in self._reference_map.items():
+            config['variables'] = self._replace_reference(reference_name, reference_value, config['variables'])
+        return config
+
+
+@final
+class VideoConfigOptionReferenceReplacer(VideoConfigReferenceReplacer):
+    def process_one(self, title: str, config: dict) -> dict:
+        config['options'] = self._replace_template_names_with_options(config['options'], self._reference_map)
+        return config
+
+    @classmethod
+    def _replace_template_names_with_options(cls, option_list: List[str], templates: Dict[str, str]) -> List[str]:
+        replaced = []
+        for name in option_list:
+            options = cls._get_option_or_template_options_list(name, templates)
+            replaced = [*replaced, *options]
+        return replaced
+
+    @staticmethod
+    def _get_template_options_for_template_name(template_name: str, templates: Dict[str, str]) -> List[str]:
+        option_text = templates[template_name]
+        split_options = option_text.splitlines(keepends=False)
+        return split_options
+
+    @classmethod
+    def _get_option_or_template_options_list(cls, option: str, templates: Dict[str, str]) -> List[str]:
+        if option in templates:
+            preset_options = cls._get_template_options_for_template_name(option, templates)
+            return preset_options
+        else:
+            return [option]
+
+
+class VideoConfigBuilder:
+    def __init__(self, video_title: str, config: Dict[str, dict]):
+        self._preprocessors = []
+        self._config = config
+        self._video_title = video_title
+
+    def set_preprocessors(self, preprocessors: List[VideoConfigListPreprocessor]) -> None:
+        self._preprocessors = preprocessors
+
+    def _execute_preprocessors(self):
+        for preprocessor in self._preprocessors:
+            self._config = preprocessor.process(self._config, self._video_title)
+
+    def build(self) -> VideoConfig:
+        self._execute_preprocessors()
+        return VideoConfig(self._config)
+
+
+def get_static_video_config_preprocessors(config: Config) -> List[VideoConfigListPreprocessor]:
+    return [
+        VideoConfigTitleAdder(),
+        VideoConfigScriptDirAdder(config.get_export_path()),
+        VideoConfigVariablePrepender(config.get_variables()),
+        VideoConfigOptionPrepender(config.get_options()),
+        VideoConfigOptionReferenceReplacer(config.get_option_templates())
+    ]
+
+
+def build_video_config(title: str, config: dict, preprocessors: List[VideoConfigListPreprocessor]) -> VideoConfig:
+    builder = VideoConfigBuilder(title, config)
+    preprocessors = preprocessors + [VideoConfigVariableReferenceReplacer({'{video_title}': title})]
+    builder.set_preprocessors(preprocessors)
+    return builder.build()
+
+
+def build_video_configs_from_global_config(config: Config, appendable_variables: Dict[str, str]) -> List[VideoConfig]:
+    video_config_dicts = config.get_videos()
+    static_preprocessors = get_static_video_config_preprocessors(config)
+    static_preprocessors.append(VideoConfigVariableAppender(appendable_variables))
+
+    return [
+        build_video_config(video_title, video_config, static_preprocessors)
+        for video_title, video_config in video_config_dicts.items()
+    ]

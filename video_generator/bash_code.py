@@ -50,7 +50,8 @@ script_md5=$(echo $script_md5 | md5sum | cut -d" " -f1)
 """
 
 static_video_variables = {
-    'output_file': '{video_title}.mp4',
+    'video_title': '{video_title}',
+    'output_file': '$video_title.mp4',
     'script_path': '$(readlink --canonicalize-existing "$0")',
     'script_md5': '$(md5sum $script_path | cut -d" " -f1)',
     'video_md5': '$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)'
