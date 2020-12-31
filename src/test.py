@@ -1,20 +1,20 @@
 import unittest
 from unittest import mock
 
-import generate_videos
+import build_videos
 from config import VideoConfig, Config, \
     build_video_configs_from_global_config
-from generate_videos import are_cli_arguments_valid
+from build_videos import are_cli_arguments_valid
 
 
 class TestMainExecuted(unittest.TestCase):
-    def test_generate_videos_executed(self):
-        with mock.patch.object(generate_videos, "generate_videos", return_value=42):
-            with mock.patch.object(generate_videos, "__name__", "__main__"):
-                with mock.patch.object(generate_videos, 'are_cli_arguments_valid', return_value=1):
-                    with mock.patch.object(generate_videos, 'argv', ['', '', '']):
-                        with mock.patch.object(generate_videos, 'exit') as mock_exit:
-                            generate_videos.init()
+    def test_build_videos_executed(self):
+        with mock.patch.object(build_videos, "build_videos", return_value=42):
+            with mock.patch.object(build_videos, "__name__", "__main__"):
+                with mock.patch.object(build_videos, 'are_cli_arguments_valid', return_value=1):
+                    with mock.patch.object(build_videos, 'argv', ['', '', '']):
+                        with mock.patch.object(build_videos, 'exit') as mock_exit:
+                            build_videos.init()
                             self.assertEqual(42, mock_exit.call_args[0][0])
 
 

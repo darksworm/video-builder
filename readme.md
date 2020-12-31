@@ -56,10 +56,10 @@ videos:
       - darkness_5_sec
 ```
 
-2. Run `build_video.py`
+2. Run `build_videos.py`
 
 ```bash
-python build_video.py prestream.yaml export
+python build_videos.py prestream.yaml export
 ```
 
 3. Enjoy

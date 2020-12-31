@@ -11,13 +11,12 @@ import os
 from sys import argv
 
 import yaml
-
 from bash_code import static_video_variables
 from config import Config, build_video_configs_from_global_config
 from script_writing import write_video_scripts, write_main_script
 
 
-def generate_videos(yaml_file_path: str, export_path: str) -> int:
+def build_videos(yaml_file_path: str, export_path: str) -> int:
     config = create_config(yaml_file_path, export_path, main_script_name='generate.bash')
     generate_scripts(config)
     return run_script(config.get_export_path(), config.get_script_name())
@@ -45,9 +44,9 @@ def run_script(path: str, name: str) -> int:
     return os.system(f'bash {name}')
 
 
-def generate_videos_from_cli(arguments: list) -> int:
+def build_videos_from_cli(arguments: list) -> int:
     [_, yaml_file_path, export_path] = arguments
-    return generate_videos(yaml_file_path, export_path)
+    return build_videos(yaml_file_path, export_path)
 
 
 def are_cli_arguments_valid(arguments: list) -> bool:
@@ -64,7 +63,7 @@ def are_cli_arguments_valid(arguments: list) -> bool:
 
 def init():
     if __name__ == "__main__":
-        exit(1 if not are_cli_arguments_valid(argv) else generate_videos_from_cli(argv))
+        exit(build_videos_from_cli(argv) if are_cli_arguments_valid(argv) else 1)
 
 
 init()

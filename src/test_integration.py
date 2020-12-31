@@ -8,7 +8,7 @@ from io import StringIO
 import psutil
 
 from config import Config, build_video_configs_from_global_config
-from generate_videos import load_yaml_config_from_file, generate_videos
+from build_videos import load_yaml_config_from_file, build_videos
 from script_writing import StaticBashCodeBuilder, BashScriptWriter, BashCodeBuilder, write_main_script
 
 
@@ -256,7 +256,7 @@ class Test3SecondBlankVideoCreated(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_video_length_matches(self):
-        generate_videos(self.config_file.name, self.temp_dir)
+        build_videos(self.config_file.name, self.temp_dir)
         actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
         actual = actual.decode('UTF-8').rstrip()
         self.assertEqual(str(self.duration), str(actual))
@@ -334,7 +334,7 @@ class TestCombineWithBlankVideos(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_video_length_matches(self):
-        generate_videos(self.config_file.name, self.temp_dir)
+        build_videos(self.config_file.name, self.temp_dir)
         actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
         actual = actual.decode('UTF-8').rstrip()
         self.assertEqual(str(self.video1['duration'] + self.video2['duration']), str(actual))
