@@ -1,0 +1,165 @@
+shared_options:
+  - "-y"
+  - "-v warning"
+  - "-hide_banner"
+  - "-stats"
+
+shared_variables:
+  assets: /home/ilmars/dev/devops/nginx-streamer/assets
+  fps: 24
+  cd_dur: 1200
+  audio_fade_dur: 15
+  font_size: 372
+  font_color: "#ffffff"
+  font_file: $assets/font.ttf
+  audio_rate: 44100
+  keyframe_framenr: 48
+  darkness_img: $assets/blackness.png
+  bgmusic: $assets/backgroundmusic.mp3
+
+option_templates:
+  shared_options: |-
+    -c:v h264
+    -c:a aac
+    -ac 2
+    -ar $audio_rate
+    -r $fps
+
+  countdown: |-
+    -vf "fps=$fps,drawtext=fontfile='$font_file'
+         :fontcolor=$font_color:fontsize=$font_size
+         :x=(w-text_w)/2:y=(h-text_h)/2
+         :text='%{eif\:(($countdown_start-t)/60)\:d\:2}\:%{eif\:mod(($countdown_start-t),60)\:d\:2}'"
+
+  blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
+
+  rescale1080p: -vf "scale=1920:1080,setsar=1:1"
+
+  padto1080p: -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
+
+videos:
+  darkness_5_sec:
+    variables:
+      duration: 5
+    options:
+      - '-loop 1'
+      - "-i $darkness_img"
+      - "-t $duration"
+      - blank_audio_options
+      - "-shortest"
+      - shared_options
+
+  reminder_video:
+    variables:
+      duration: 8
+      image: $assets/remember.png
+    options:
+      - '-loop 1'
+      - "-i $image"
+      - blank_audio_options
+      - "-t $duration"
+      - shared_options
+
+  thanks_video:
+    variables:
+      duration: 8
+      image: $assets/thanks.png
+    options:
+      - '-loop 1'
+      - "-i $image"
+      - blank_audio_options
+      - "-t $duration"
+      - shared_options
+
+  whiplash:
+    variables:
+      video: $assets/trailers/whiplash_2014.mp4
+    options:
+      - "-i $video"
+      - rescale1080p
+      - shared_options
+      - "-ss 5"
+      - "-t 15"
+
+  grand_budapest:
+    variables:
+      video: $assets/trailers/the_grand_budapest_hotel_2014.mp4
+    options:
+      - "-i $video"
+      - rescale1080p
+      - shared_options
+      - "-t 15"
+
+  nightcrawler:
+    variables:
+      video: $assets/trailers/nightcrawler_2014.mp4
+    options:
+      - "-i $video"
+      - rescale1080p
+      - shared_options
+      - "-ss 6"
+      - "-t 15"
+
+  midsommar:
+    variables:
+      video: $assets/trailers/midsommar_2014.mp4
+    options:
+      - "-i $video"
+      - rescale1080p
+      - shared_options
+      - "-t 15"
+
+  countdown_second:
+    variables:
+      duration: 30
+      countdown_start: 30
+    options:
+      - blank_audio_options
+      - '-loop 1'
+      - "-i $darkness_img"
+      - "-t $duration"
+      - shared_options
+      - countdown
+      - "-strict 2"
+
+  countdown_first:
+    variables:
+      countdown_start: 30
+      duration: 31 #"$(expr $countdown_start - $midsommar_length - $nightcrawler_length - $grand_budapest_length - $whiplash_length - $countdown_second_length)"
+      audio_fade_start: "$(expr $duration - 30)"
+      audio_fade_dur: 25
+    options:
+      - '-loop 1'
+      - "-i $darkness_img"
+      - "-i $bgmusic"
+      - "-t $duration"
+      - "-af \"volume=0.07,afade=t=out:st=$audio_fade_start:d=$audio_fade_dur\""
+      - shared_options
+      - countdown
+      - "-strict 2"
+
+  # movie:
+  #   variables:
+  #     movie_file: $assets/birdman.mkv
+  #   options:
+  #     - "-i $movie_file"
+  #     - shared_options
+  #     - -vf "scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1:color=black"
+
+  prestream:
+    options:
+      - "-g $keyframe_framenr"
+      - "-keyint_min $keyframe_framenr"
+      - "-sc_threshold 0"
+    combine:
+      - darkness_5_sec
+      - countdown_first
+      - grand_budapest
+      - whiplash
+      - nightcrawler
+      - midsommar
+      - darkness_5_sec
+      - countdown_second
+      - darkness_5_sec
+      - reminder_video
+      - thanks_video
