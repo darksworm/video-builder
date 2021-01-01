@@ -279,7 +279,3 @@ class TestVideoConfigListPreprocessor(unittest.TestCase):
         preprocessor = VideoConfigListPreprocessor()
         with self.assertRaises(NotImplementedError):
             preprocessor.process({}, '')
-
-
-if __name__ == '__main__':
-    unittest.main()

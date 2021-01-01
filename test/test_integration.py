@@ -349,7 +349,3 @@ class TestValidateArguments(unittest.TestCase):
     def test_validate_arguments_true_on_good_variables(self):
         with tempfile.NamedTemporaryFile() as f:
             self.assertTrue(are_cli_arguments_valid(["something!!!", f.name, ""]))
-
-
-if __name__ == '__main__':
-    unittest.main()
