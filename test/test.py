@@ -2,10 +2,11 @@ import unittest
 from unittest import mock
 
 import build_videos
+from bash_writer.builders import FFmpegOptionBuilder
 from build_videos import are_cli_arguments_valid
 from config.builder import build_video_configs_from_config
 from config.config import VideoConfig, Config
-from config.preprocessors import VideoConfigScriptDirAdder, VideoConfigTitleAdder
+from config.preprocessors import VideoConfigScriptDirAdder, VideoConfigTitleAdder, VideoConfigListPreprocessor
 
 
 class TestMainExecuted(unittest.TestCase):
@@ -252,6 +253,32 @@ class TestBuildVideoConfigs(unittest.TestCase):
         configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertIn('/', config.get_script_path())
+
+
+class TestFFmpegOptionBuilder(unittest.TestCase):
+    def setUp(self) -> None:
+        options = [
+            'somestr',
+            {
+                'first': 'something',
+                'second': 'else'
+            }
+        ]
+        builder = FFmpegOptionBuilder(options)
+        self.output = builder.build()
+
+    def test_for_dict_second_elem_is_not_in_output(self) -> None:
+        self.assertNotIn('else', self.output, 'the second element should not be in the output')
+
+    def test_for_dict_first_elem_is_in_output(self) -> None:
+        self.assertIn('something', self.output, 'the first element should be in the output')
+
+
+class TestVideoConfigListPreprocessor(unittest.TestCase):
+    def test_abstract_class_raises_when_used(self):
+        preprocessor = VideoConfigListPreprocessor()
+        with self.assertRaises(NotImplementedError):
+            preprocessor.process({}, '')
 
 
 if __name__ == '__main__':

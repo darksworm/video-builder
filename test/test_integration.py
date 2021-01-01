@@ -8,6 +8,7 @@ import psutil
 
 from bash_writer.builders import BashCodeBuilder
 from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
+from build_videos import are_cli_arguments_valid
 from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
 from config.builder import build_video_configs_from_config
 from config.config import Config
@@ -342,6 +343,12 @@ class TestCombineWithBlankVideos(unittest.TestCase):
         actual = subprocess.check_output(['/bin/bash', self.probe_script.name])
         actual = actual.decode('UTF-8').rstrip()
         self.assertEqual(str(self.video1['duration'] + self.video2['duration']), str(actual))
+
+
+class TestValidateArguments(unittest.TestCase):
+    def test_validate_arguments_true_on_good_variables(self):
+        with tempfile.NamedTemporaryFile() as f:
+            self.assertTrue(are_cli_arguments_valid(["something!!!", f.name, ""]))
 
 
 if __name__ == '__main__':
