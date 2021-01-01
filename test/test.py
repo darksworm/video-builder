@@ -2,9 +2,9 @@ import unittest
 from unittest import mock
 
 import build_videos
+from build_videos import are_cli_arguments_valid
 from config import VideoConfig, Config, \
     build_video_configs_from_global_config
-from build_videos import are_cli_arguments_valid
 
 
 class TestMainExecuted(unittest.TestCase):
