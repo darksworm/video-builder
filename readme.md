@@ -1,4 +1,5 @@
 ## Video generator
+![tests](https://github.com/darksworm/video-builder/workflows/tests/badge.svg) [![Coverage Status](https://coveralls.io/repos/github/darksworm/video-builder/badge.svg?branch=master)](https://coveralls.io/github/darksworm/video-builder?branch=master)
 
 Works as a facade for FFmpeg.
 

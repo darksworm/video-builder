@@ -1,0 +1,67 @@
+name: tests
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+
+    strategy:
+      matrix:
+        python-version: [3.8]
+        test-type: [unit, integration]
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./video_builder
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: setup python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: install ffmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v1-beta
+
+      - name: Install python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+          pip install pytest pytest-cov coveralls
+
+      - name: run tests
+        env:
+          unit: test.py
+          integration: test_integration.py
+        run: python -m pytest ../test/$${{ matrix.test-type }} --cov
+
+      - name: coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_FLAG_NAME: ${{ matrix.test-name }}
+          COVERALLS_PARALLEL: true
+        run: |
+          coveralls
+
+  coveralls:
+    name: finish Coveralls
+    needs: test
+    runs-on: ubuntu-latest
+    container: python:3-slim
+    steps:
+      - name: Finished
+        run: |
+          pip install --upgrade coveralls
+          coveralls --finish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
