@@ -15,14 +15,14 @@ function concat_videos() {
     ${videos[@]/#/-i } \\
     -filter_complex "${filter_complex}concat=n=${#videos[@]}:v=1:a=1[a][v]" \\
     -map "[v]" \\
-    -map "[a]" \\
+    -map "[a]" \\\
 """
 concat_function_2 = """\
     $output_file
 }
 """
 
-script_return_command = """\
+video_script_output = """\
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $output_file | cut -d. -f1\
 """
 
@@ -31,7 +31,7 @@ skip_regenerate_existing_video = f"""\
 # need to regenerate the video as it is up to date.
 if [ -f "$output_file" ] && [ "$script_md5" = "$video_md5" ]; then
     >&2 echo "$output_file already up to date, skipping it!"
-    {script_return_command}
+    {video_script_output}
     exit 1
 fi
 >&2 echo "Generating $output_file..."
@@ -49,10 +49,14 @@ done
 script_md5=$(echo $script_md5 | md5sum | cut -d" " -f1)
 """
 
-static_video_variables = {
-    'video_title': '{video_title}',
-    'output_file': '$video_title.mp4',
-    'script_path': '$(readlink --canonicalize-existing "$0")',
-    'script_md5': '$(md5sum $script_path | cut -d" " -f1)',
-    'video_md5': '$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)'
-}
+script_beginning = """\
+#!/bin/bash
+set -e -u
+"""
+
+metadata_writer = """\
+# save generation script md5 in generated videos "artist" metadata field
+exiftool $output_file -artist="$script_md5" 1>/dev/null
+# remove the backup file created by exiftool
+rm ${output_file}_original
+"""

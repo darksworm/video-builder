@@ -7,10 +7,11 @@ from io import StringIO
 
 import psutil
 
+from bash_writer.builders import BashCodeBuilder
 from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
 from config.builder import build_video_configs_from_config
 from config.config import Config
-from script_writing import StaticBashCodeBuilder, BashScriptWriter, BashCodeBuilder, write_main_script
+from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
 
 
 class TestYamlConfigLoader(unittest.TestCase):
@@ -124,9 +125,9 @@ class TestWriteMainScript(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export', 'generate.bash')
-        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
         self.script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.config = Config(self.raw_config, '', self.script_file.name)
+        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
 
         self.video_script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
         self.video_script_file.write('#!/bin/bash')
@@ -138,7 +139,7 @@ class TestWriteMainScript(unittest.TestCase):
             os.unlink(file.name)
 
     def write_and_get_contents(self):
-        write_main_script(self.script_file.name, self.videos, self.config.get_variables())
+        write_main_script(self.config, self.videos)
         with open(self.script_file.name, 'r') as file:
             return file.read()
 
@@ -191,16 +192,16 @@ class TestWriteMainScriptWithoutVideos(unittest.TestCase):
                 'something': "-yes -no -maybe"
             }
         }
-        self.config = Config(self.raw_config, 'export', 'generate.bash')
-        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
         self.temporary_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.config = Config(self.raw_config, '', self.temporary_file.name)
+        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
 
     def tearDown(self) -> None:
         self.temporary_file.close()
         os.unlink(self.temporary_file.name)
 
     def test_written_script_executes_successfully(self):
-        write_main_script(self.temporary_file.name, self.videos, self.config.get_variables())
+        write_main_script(self.config, self.videos)
         exit_code = os.system(f'bash {self.temporary_file.name}')
         self.assertEqual(0, exit_code)
 

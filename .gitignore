@@ -7,3 +7,6 @@ __pycache__
 .idea/
 .coverage
 htmlcov/
+/build/
+/dist/
+/video_builder.egg-info/

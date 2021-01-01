@@ -1,15 +1,14 @@
 import os
-from typing import List
+from typing import List, Dict
 
 import yaml
 
-from bash_code import static_video_variables
+from bash_writer.writers import write_video_scripts, write_main_script
 from config.builder import build_video_configs_from_config
-from config.config import Config
+from config.config import Config, VideoConfig
 from config.preprocessors import VideoConfigListPreprocessor, VideoConfigOptionReferenceReplacer, \
     VideoConfigOptionPrepender, VideoConfigVariablePrepender, VideoConfigScriptDirAdder, VideoConfigTitleAdder, \
     VideoConfigVariableAppender
-from script_writing import write_video_scripts, write_main_script
 
 
 def build_videos(yaml_file_path: str, export_path: str) -> int:
@@ -18,22 +17,15 @@ def build_videos(yaml_file_path: str, export_path: str) -> int:
     return run_script(config.get_export_path(), config.get_script_name())
 
 
-def get_static_video_config_preprocessors(config: Config) -> List[VideoConfigListPreprocessor]:
-    return [
-        VideoConfigTitleAdder(),
-        VideoConfigScriptDirAdder(config.get_export_path()),
-        VideoConfigVariablePrepender(config.get_variables()),
-        VideoConfigVariableAppender(static_video_variables),
-        VideoConfigOptionPrepender(config.get_options()),
-        VideoConfigOptionReferenceReplacer(config.get_option_templates()),
-    ]
-
-
 def generate_scripts(config: Config) -> None:
-    preprocessors = get_static_video_config_preprocessors(config)
-    video_configs = build_video_configs_from_config(config, preprocessors)
+    video_configs = generate_video_configs(config)
     write_video_scripts(video_configs)
-    write_main_script(config.get_script_path(), video_configs, config.get_variables())
+    write_main_script(config, video_configs)
+
+
+def generate_video_configs(config: Config) -> List[VideoConfig]:
+    preprocessors = get_static_video_config_preprocessors(config)
+    return build_video_configs_from_config(config, preprocessors)
 
 
 def create_config(yaml_file_path: str, export_path: str, main_script_name: str) -> Config:
@@ -50,3 +42,24 @@ def run_script(path: str, name: str) -> int:
     os.chdir(path)
     os.system('chmod +x *.bash')
     return os.system(f'bash {name}')
+
+
+def get_static_video_config_preprocessors(config: Config) -> List[VideoConfigListPreprocessor]:
+    return [
+        VideoConfigTitleAdder(),
+        VideoConfigScriptDirAdder(config.get_export_path()),
+        VideoConfigVariablePrepender(config.get_variables()),
+        VideoConfigVariableAppender(get_static_video_variables()),
+        VideoConfigOptionPrepender(config.get_options()),
+        VideoConfigOptionReferenceReplacer(config.get_option_templates()),
+    ]
+
+
+def get_static_video_variables() -> Dict[str, str]:
+    return {
+        'video_title': '{video_title}',
+        'output_file': '$video_title.mp4',
+        'script_path': '$(readlink --canonicalize-existing "$0")',
+        'script_md5': '$(md5sum $script_path | cut -d" " -f1)',
+        'video_md5': '$(exiftool $output_file | grep Artist | cut -d":" -f2 | xargs)'
+    }

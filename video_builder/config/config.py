@@ -29,7 +29,7 @@ class Config:
         return self._export_dir
 
     def get_script_name(self) -> str:
-        return f'export_{self._script_name}.bash'
+        return self._script_name
 
     def get_script_path(self) -> str:
         return self._export_dir + self.get_script_name()
