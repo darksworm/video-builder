@@ -6,7 +6,8 @@ import unittest
 from io import StringIO
 
 import psutil
-from build_videos import load_yaml_config_from_file, build_videos
+
+from builder import load_yaml_config_from_file, build_videos
 from config import Config, build_video_configs_from_global_config
 from script_writing import StaticBashCodeBuilder, BashScriptWriter, BashCodeBuilder, write_main_script
 
