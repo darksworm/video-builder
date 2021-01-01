@@ -1,8 +1,14 @@
-import yaml
 import os
+from typing import List
+
+import yaml
 
 from bash_code import static_video_variables
-from config import Config, build_video_configs_from_global_config
+from config.builder import build_video_configs_from_config
+from config.config import Config
+from config.preprocessors import VideoConfigListPreprocessor, VideoConfigOptionReferenceReplacer, \
+    VideoConfigOptionPrepender, VideoConfigVariablePrepender, VideoConfigScriptDirAdder, VideoConfigTitleAdder, \
+    VideoConfigVariableAppender
 from script_writing import write_video_scripts, write_main_script
 
 
@@ -12,8 +18,20 @@ def build_videos(yaml_file_path: str, export_path: str) -> int:
     return run_script(config.get_export_path(), config.get_script_name())
 
 
+def get_static_video_config_preprocessors(config: Config) -> List[VideoConfigListPreprocessor]:
+    return [
+        VideoConfigTitleAdder(),
+        VideoConfigScriptDirAdder(config.get_export_path()),
+        VideoConfigVariablePrepender(config.get_variables()),
+        VideoConfigVariableAppender(static_video_variables),
+        VideoConfigOptionPrepender(config.get_options()),
+        VideoConfigOptionReferenceReplacer(config.get_option_templates()),
+    ]
+
+
 def generate_scripts(config: Config) -> None:
-    video_configs = build_video_configs_from_global_config(config, appendable_variables=static_video_variables)
+    preprocessors = get_static_video_config_preprocessors(config)
+    video_configs = build_video_configs_from_config(config, preprocessors)
     write_video_scripts(video_configs)
     write_main_script(config.get_script_path(), video_configs, config.get_variables())
 

@@ -1,7 +1,7 @@
 from typing import TextIO, List, Dict, final
 
 import bash_code
-from config import VideoConfig
+from config.config import VideoConfig
 
 
 class BashCodeBuilder:

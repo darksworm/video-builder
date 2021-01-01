@@ -7,8 +7,9 @@ from io import StringIO
 
 import psutil
 
-from builder import load_yaml_config_from_file, build_videos
-from config import Config, build_video_configs_from_global_config
+from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
+from config.builder import build_video_configs_from_config
+from config.config import Config
 from script_writing import StaticBashCodeBuilder, BashScriptWriter, BashCodeBuilder, write_main_script
 
 
@@ -124,7 +125,7 @@ class TestWriteMainScript(unittest.TestCase):
             }
         }
         self.config = Config(self.raw_config, 'export', 'generate.bash')
-        self.videos = build_video_configs_from_global_config(self.config, {})
+        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
         self.script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
 
         self.video_script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
@@ -191,7 +192,7 @@ class TestWriteMainScriptWithoutVideos(unittest.TestCase):
             }
         }
         self.config = Config(self.raw_config, 'export', 'generate.bash')
-        self.videos = build_video_configs_from_global_config(self.config, {})
+        self.videos = build_video_configs_from_config(self.config, get_static_video_config_preprocessors(self.config))
         self.temporary_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
 
     def tearDown(self) -> None:

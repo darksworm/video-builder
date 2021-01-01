@@ -3,8 +3,9 @@ from unittest import mock
 
 import build_videos
 from build_videos import are_cli_arguments_valid
-from config import VideoConfig, Config, \
-    build_video_configs_from_global_config
+from config.builder import build_video_configs_from_config
+from config.config import VideoConfig, Config
+from config.preprocessors import VideoConfigScriptDirAdder, VideoConfigTitleAdder
 
 
 class TestMainExecuted(unittest.TestCase):
@@ -211,38 +212,44 @@ class TestBuildVideoConfigs(unittest.TestCase):
 
     def test_returned_video_count_matches_config(self):
         video_count = len(self.config.get_videos())
-        config_count = len(build_video_configs_from_global_config(self.config, {}))
+        config_count = len(build_video_configs_from_config(self.config, []))
         self.assertEqual(video_count, config_count)
 
     def test_video_title_set(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigTitleAdder()]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertGreater(config.get_title(), "")
 
     def test_video_titles_present(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigTitleAdder()]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         expected_titles = [key for key, value in self.config.get_videos().items()]
         config_titles = [config.get_title() for config in configs]
 
         self.assertEqual(expected_titles, config_titles)
 
     def test_video_script_path_set(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigScriptDirAdder(self.config.get_export_path())]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertNotEqual("", config.get_script_path())
 
     def test_video_script_path_contains_name(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigScriptDirAdder(self.config.get_export_path())]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertIn(config.get_script_name(), config.get_script_path())
 
     def test_video_script_path_contains_export_path(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigScriptDirAdder(self.config.get_export_path())]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertIn(self.config.get_export_path(), config.get_script_path())
 
     def test_video_script_path_contains_slash(self):
-        configs = build_video_configs_from_global_config(self.config, {})
+        preprocessors = [VideoConfigScriptDirAdder(self.config.get_export_path())]
+        configs = build_video_configs_from_config(self.config, preprocessors)
         for config in configs:
             self.assertIn('/', config.get_script_path())
 
