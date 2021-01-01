@@ -3,15 +3,14 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from io import StringIO
 
 import psutil
 
 from bash_writer.builders import BashCodeBuilder
+from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
 from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
 from config.builder import build_video_configs_from_config
 from config.config import Config
-from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
 
 
 class TestYamlConfigLoader(unittest.TestCase):
@@ -44,33 +43,36 @@ class TestBashScript(unittest.TestCase):
         self.line1 = "#!/bin/bash"
         self.line2 = "set -e -u"
 
-        writers = [
+        builders = [
             StaticBashCodeBuilder(self.line1),
             StaticBashCodeBuilder(self.line2),
         ]
 
-        self.mock_file = StringIO()
-        self.script = BashScriptWriter(self.mock_file, writers)
-        self.script.write()
+        self.temporary_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.temporary_file.close()
+
+        script = BashScriptWriter(self.temporary_file.name)
+        script.write(builders)
 
     def tearDown(self) -> None:
-        self.script.close_file()
+        os.unlink(self.temporary_file.name)
+
+    def _get_temporary_file_contents(self):
+        with open(self.temporary_file.name, 'r') as file:
+            return file.read()
 
     def test_file_written_to(self):
-        self.mock_file.seek(0)
-        content = self.mock_file.read()
+        content = self._get_temporary_file_contents()
         self.assertNotEqual('', content)
 
     def test_file_lines_match_writer_contents(self):
-        self.mock_file.seek(0)
-        script_content = self.mock_file.read()
+        content = self._get_temporary_file_contents()
         expected_content = f'{self.line1}{self.line2}'
-        self.assertEqual(expected_content.replace('\n', ''), script_content.replace('\n', ''))
+        self.assertEqual(expected_content.replace('\n', ''), content.replace('\n', ''))
 
     def test_script_executes_with_0_exit_code(self):
-        self.mock_file.seek(0)
-        script_content = self.mock_file.read()
-        exit_code = os.system(script_content)
+        content = self._get_temporary_file_contents()
+        exit_code = os.system(content)
         self.assertEqual(0, exit_code)
 
 
