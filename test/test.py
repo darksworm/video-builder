@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 import build_videos
-from bash_writer.builders import FFmpegOptionBuilder
+from bash_writer.builders import FFmpegOptionBuilder, StaticBashCodeBuilder, BashCodeBuilder
 from build_videos import are_cli_arguments_valid
 from config.builder import build_video_configs_from_config
 from config.config import VideoConfig, Config
@@ -279,3 +279,17 @@ class TestVideoConfigListPreprocessor(unittest.TestCase):
         preprocessor = VideoConfigListPreprocessor()
         with self.assertRaises(NotImplementedError):
             preprocessor.process({}, '')
+
+
+class TestBashCodeWriter(unittest.TestCase):
+    def test_bash_code_writer_throws_on_write(self):
+        writer = BashCodeBuilder()
+        with self.assertRaises(NotImplementedError):
+            writer.build()
+
+
+class TestStaticBashCodeBuilder(unittest.TestCase):
+    def test_built_code_contains_passed_code(self):
+        passed_code = "random_gibberish and such"
+        builder = StaticBashCodeBuilder(passed_code)
+        self.assertIn(passed_code, builder.build())

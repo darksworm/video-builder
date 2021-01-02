@@ -6,7 +6,6 @@ import unittest
 
 import psutil
 
-from bash_writer.builders import BashCodeBuilder
 from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
 from build_videos import are_cli_arguments_valid
 from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
@@ -75,20 +74,6 @@ class TestBashScript(unittest.TestCase):
         content = self._get_temporary_file_contents()
         exit_code = os.system(content)
         self.assertEqual(0, exit_code)
-
-
-class TestBashCodeWriter(unittest.TestCase):
-    def test_bash_code_writer_throws_on_write(self):
-        writer = BashCodeBuilder()
-        with self.assertRaises(NotImplementedError):
-            writer.build()
-
-
-class TestStaticBashCodeBuilder(unittest.TestCase):
-    def test_built_code_contains_passed_code(self):
-        passed_code = "random_gibberish and such"
-        builder = StaticBashCodeBuilder(passed_code)
-        self.assertIn(passed_code, builder.build())
 
 
 class TestWriteMainScript(unittest.TestCase):
@@ -346,6 +331,18 @@ class TestCombineWithBlankVideos(unittest.TestCase):
 
 
 class TestValidateArguments(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = '/tmp/python_test'
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        os.mkdir(self.temp_dir)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
     def test_validate_arguments_true_on_good_variables(self):
         with tempfile.NamedTemporaryFile() as f:
-            self.assertTrue(are_cli_arguments_valid(["something!!!", f.name, ""]))
+            self.assertTrue(are_cli_arguments_valid(["something!!!", f.name, self.temp_dir]))
+
+    def test_validate_arguments_false_on_non_existant_directory(self):
+        with tempfile.NamedTemporaryFile() as f:
+            self.assertFalse(are_cli_arguments_valid(["something!!!", f.name, self.temp_dir + "_dont_exist"]))

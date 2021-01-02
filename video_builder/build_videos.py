@@ -27,6 +27,10 @@ def are_cli_arguments_valid(arguments: list) -> bool:
         print('Passed yaml file does not exist!')
         return False
 
+    if not os.path.exists(arguments[2]):
+        print('Passed export directory does not exist!')
+        return False
+
     return True
 
 
