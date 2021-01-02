@@ -6,11 +6,12 @@ import unittest
 
 import psutil
 
+from bash_writer.builders import VideoListVariableBuilder
 from bash_writer.writers import StaticBashCodeBuilder, BashScriptWriter, write_main_script
 from build_videos import are_cli_arguments_valid
 from builder import load_yaml_config_from_file, build_videos, get_static_video_config_preprocessors
 from config.builder import build_video_configs_from_config
-from config.config import Config
+from config.config import Config, VideoConfig
 
 
 class TestYamlConfigLoader(unittest.TestCase):
@@ -346,3 +347,62 @@ class TestValidateArguments(unittest.TestCase):
     def test_validate_arguments_false_on_non_existant_directory(self):
         with tempfile.NamedTemporaryFile() as f:
             self.assertFalse(are_cli_arguments_valid(["something!!!", f.name, self.temp_dir + "_dont_exist"]))
+
+
+class TestVideoVariableListBuilderWithCombine(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = self.get_raw_config()
+        self.builder = VideoListVariableBuilder(VideoConfig(self.raw_config))
+        self.script_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        self.script_file.write(self.builder.build())
+
+    def get_raw_config(self):
+        return {
+            'title': 'test',
+            'variables': {
+                'length': '30',
+                'file': 'dankmemes.jpg'
+            },
+            'combine': [
+                'video--dank',
+                'other_video--dank'
+            ]
+        }
+
+    def tearDown(self) -> None:
+        os.unlink(self.script_file.name)
+
+    def test_built_code_exits_with_zero(self):
+        self.script_file.close()
+        exit_code = os.system(f'bash {self.script_file.name}')
+        self.assertEqual(0, exit_code)
+
+    def test_built_code_doesnt_echo(self):
+        self.script_file.close()
+        output = subprocess.check_output(f'bash {self.script_file.name}', shell=True)
+        self.assertEqual(b'', output)
+
+    def _get_first_video_title(self):
+        if self.raw_config.get('combine', False):
+            return self.raw_config['combine'][0]
+        return self.raw_config['title']
+
+    def test_echo_first_variable(self):
+        self.script_file.write('\necho ${videos[0]}')
+        self.script_file.close()
+
+        output = subprocess.check_output(f'bash {self.script_file.name}', shell=True)
+        output = "".join(output.decode('UTF-8').split())
+
+        self.assertEqual(f'{self._get_first_video_title()}.mp4', output)
+
+
+class TestVideoVariableListBuilder(TestVideoVariableListBuilderWithCombine):
+    def get_raw_config(self):
+        return {
+            'title': 'test',
+            'variables': {
+                'length': '30',
+                'file': 'dankmemes.jpg'
+            }
+        }

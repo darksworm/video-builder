@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 import build_videos
-from bash_writer.builders import FFmpegOptionBuilder, StaticBashCodeBuilder, BashCodeBuilder
+from bash_writer.builders import FFmpegOptionBuilder, StaticBashCodeBuilder, BashCodeBuilder, VideoListVariableBuilder
 from build_videos import are_cli_arguments_valid
 from config.builder import build_video_configs_from_config
 from config.config import VideoConfig, Config
@@ -293,3 +293,40 @@ class TestStaticBashCodeBuilder(unittest.TestCase):
         passed_code = "random_gibberish and such"
         builder = StaticBashCodeBuilder(passed_code)
         self.assertIn(passed_code, builder.build())
+
+
+class TestVideoVariableListBuilderWithCombine(unittest.TestCase):
+    def setUp(self) -> None:
+        self.raw_config = {
+            'title': 'test',
+            'variables': {
+                'length': '30',
+                'file': 'dankmemes.jpg'
+            },
+            'combine': [
+                'video--dank',
+                'other_video--dank'
+            ]
+        }
+        self.config = VideoConfig(self.raw_config)
+        self.builder = VideoListVariableBuilder(self.config)
+        self.output = self.builder.build()
+
+    def test_self_title_not_in_combination_video(self):
+        self.assertNotIn(self.raw_config['title'], self.output)
+
+    def test_all_combine_videos_present_in_output(self):
+        for video in self.raw_config['combine']:
+            self.assertIn(video, self.output)
+
+    def test_video_count_matches(self):
+        expected = len(self.raw_config['combine'])
+        actual = len(self.output.split('--dank')) - 1
+        self.assertEqual(expected, actual)
+
+    def test_videos_have_mp4_extension_in_output(self):
+        for name in self.raw_config['combine']:
+            first = self.output.find(name) + len(name)
+            last = first + 3 + 1
+            extension = self.output[first:last]
+            self.assertEqual('.mp4', extension)
