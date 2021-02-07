@@ -43,10 +43,10 @@ class BashScriptWriter:
 
 class VideoBuilderListBuilder:
     def get_regeneration_check_builder(self) -> BashCodeBuilder:
-        return StaticBashCodeBuilder("")
+        raise NotImplementedError()
 
     def get_command_builder(self, options) -> BashCodeBuilder:
-        return StaticBashCodeBuilder("")
+        raise NotImplementedError()
 
     @staticmethod
     def _get_setup_builders(video: VideoConfig):
