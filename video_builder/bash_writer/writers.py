@@ -41,6 +41,75 @@ class BashScriptWriter:
             self._file.close()
 
 
+class VideoBuilderListBuilder:
+    def get_regeneration_check_builder(self) -> BashCodeBuilder:
+        return StaticBashCodeBuilder("")
+
+    def get_command_builder(self, options) -> BashCodeBuilder:
+        return StaticBashCodeBuilder("")
+
+    @staticmethod
+    def _get_setup_builders(video: VideoConfig):
+        return [
+            StaticBashCodeBuilder(bash_code.script_beginning),
+            BashVariableBuilder(video.get_variables()),
+            VideoListVariableBuilder(video),
+        ]
+
+    @staticmethod
+    def _get_exit_builders():
+        return [
+            StaticBashCodeBuilder(bash_code.metadata_writer),
+            StaticBashCodeBuilder(bash_code.video_script_output)
+        ]
+
+    def get_builders(self, video: VideoConfig) -> List[BashCodeBuilder]:
+        return [
+            *self._get_setup_builders(video),
+            self.get_regeneration_check_builder(),
+            self.get_command_builder(video.get_options()),
+            *self._get_exit_builders()
+        ]
+
+
+class VideoGenerationBuilderListBuilder(VideoBuilderListBuilder):
+    def get_regeneration_check_builder(self) -> BashCodeBuilder:
+        return StaticBashCodeBuilder(bash_code.skip_regenerate_existing_video)
+
+    def get_command_builder(self, options) -> BashCodeBuilder:
+        return FFmpegGenerateBuilder(options)
+
+
+class VideoConcatenationBuilderListBuilder(VideoBuilderListBuilder):
+    def get_regeneration_check_builder(self) -> BashCodeBuilder:
+        code = bash_code.concat_video_md5 + bash_code.skip_regenerate_existing_video
+        return StaticBashCodeBuilder(code)
+
+    def get_command_builder(self, options) -> BashCodeBuilder:
+        return FFmpegConcatBuilder(options)
+
+
+def get_video_script_builders(video: VideoConfig):
+    if video.is_combination():
+        writer = VideoConcatenationBuilderListBuilder()
+    else:
+        writer = VideoGenerationBuilderListBuilder()
+
+    return writer.get_builders(video)
+
+
+def write_video_script(video: VideoConfig) -> None:
+    builders = get_video_script_builders(video)
+
+    with BashScriptWriter(video.get_script_path()) as writer:
+        writer.write(builders)
+
+
+def write_video_scripts(videos: List[VideoConfig]) -> None:
+    for video in videos:
+        write_video_script(video)
+
+
 def write_main_script(config: Config, videos: List[VideoConfig]) -> None:
     code_builders = [
         StaticBashCodeBuilder(bash_code.script_beginning),
@@ -50,34 +119,3 @@ def write_main_script(config: Config, videos: List[VideoConfig]) -> None:
 
     with BashScriptWriter(config.get_script_path()) as writer:
         writer.write(code_builders)
-
-
-def write_video_script(video: VideoConfig) -> None:
-    command_builder = FFmpegGenerateBuilder
-    skip_regenerate = bash_code.skip_regenerate_existing_video
-
-    if video.is_combination():
-        skip_regenerate = bash_code.concat_video_md5 + skip_regenerate
-        command_builder = FFmpegConcatBuilder
-
-    builders = [
-        StaticBashCodeBuilder(bash_code.script_beginning),
-
-        BashVariableBuilder(video.get_variables()),
-        VideoListVariableBuilder(video),
-
-        StaticBashCodeBuilder(skip_regenerate),
-
-        command_builder(video.get_options()),
-
-        StaticBashCodeBuilder(bash_code.metadata_writer),
-        StaticBashCodeBuilder(bash_code.video_script_output)
-    ]
-
-    with BashScriptWriter(video.get_script_path()) as writer:
-        writer.write(builders)
-
-
-def write_video_scripts(videos: List[VideoConfig]) -> None:
-    for video in videos:
-        write_video_script(video)
