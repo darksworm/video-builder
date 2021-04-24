@@ -23,7 +23,8 @@ shared_options:
 shared_variables:
   assets: /mnt/assets
   darkness_img: $assets/blackness.png
-  thanks_img $assets/thanks_img.png
+  thanks_img: $assets/thanks_img.png
+  audio_rate: 44100
 
 option_templates:
   blank_audio_options: "-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=$audio_rate"
